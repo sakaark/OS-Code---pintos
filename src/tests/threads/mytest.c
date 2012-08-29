@@ -5,6 +5,6 @@
 
 void test_mytest(){
   printf("Hello World!\n");
-  //halt();
+  halt();
   //hello();
 }

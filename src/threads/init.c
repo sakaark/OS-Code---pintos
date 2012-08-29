@@ -22,11 +22,13 @@
 #include "threads/palloc.h"
 #include "threads/pte.h"
 #include "threads/thread.h"
+#include "userprog/syscall.h"
+#include "userprog/syscall.c"
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "userprog/exception.h"
 #include "userprog/gdt.h"
-#include "userprog/syscall.h"
+//#include "userprog/syscall.h"
 #include "userprog/tss.h"
 #else
 #include "tests/threads/tests.h"
@@ -110,6 +112,7 @@ main (void)
   timer_init ();
   kbd_init ();
   input_init ();
+  syscall_init();
 #ifdef USERPROG
   exception_init ();
   syscall_init ();
