@@ -5,6 +5,7 @@
 
 void test_mytest(){
   printf("Hello World!\n");
+  ASSERT (1==2);
   halt();
   //hello();
 }
