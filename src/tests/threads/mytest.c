@@ -2,10 +2,12 @@
 #include "tests/threads/tests.h"
 #include "threads/init.h"
 #include "threads/thread.h"
+#include "lib/debug.h"
 
 void test_mytest(){
   printf("Hello World!\n");
-  ASSERT (1==2);
+  //halt();
+  debug_backtrace_all();
   halt();
   //hello();
 }
