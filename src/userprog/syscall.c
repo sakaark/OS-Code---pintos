@@ -20,6 +20,9 @@ void go(void){
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
+  int sys_call = *((int *)f->esp);
+  if(sys_call == SYS_HALT)
+    printf("gotcha!");
   shutdown_power_off();
   printf ("system call!\n");
   go();
