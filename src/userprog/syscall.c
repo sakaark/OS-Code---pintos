@@ -3,6 +3,7 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "lib/debug.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -20,11 +21,12 @@ void go(void){
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  int sys_call = *((int *)f->esp);
+  int sys_call = *((char *)(&(f -> vec_no)) + 24);
+  debug_backtrace_all();
   if(sys_call == SYS_HALT)
-    printf("gotcha!");
-  shutdown_power_off();
+    printf("gotcha!\n");
+  //shutdown_power_off();
   printf ("system call!\n");
-  go();
+  //go();
   thread_exit ();
 }

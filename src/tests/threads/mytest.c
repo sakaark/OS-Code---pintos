@@ -7,7 +7,8 @@
 void test_mytest(){
   printf("Hello World!\n");
   //halt();
-  debug_backtrace_all();
+  //debug_backtrace_all();
   halt();
+  printf("Caught!!\n");
   //hello();
 }
