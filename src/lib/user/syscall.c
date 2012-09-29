@@ -62,6 +62,33 @@
           retval;                                               \
         })
 
+#define syscall4(NUMBER, ARG0, ARG1, ARG2, ARG3)			\
+        ({                                                      \
+          int retval;                                           \
+          asm volatile                                          \
+            ("pushl %[arg3]; pushl %[arg2]; pushl %[arg1]; pushl %[arg0]; "    \
+             "pushl %[number]; int $0x30; addl $20, %%esp"      \
+               : "=a" (retval)                                  \
+               : [number] "i" (NUMBER),                         \
+                 [arg0] "g" (ARG0),                             \
+                 [arg1] "g" (ARG1),                             \
+		 [arg2] "g" (ARG2), [arg3] "g" (ARG3)		\
+               : "memory");                                     \
+          retval;                                               \
+        })
+
+
+/********** Pthread implementation ******************/
+int
+pthread_create (pthread_t *thread, 
+		const pthread_attr_t *attr, 
+		void (*start_routine) (void *), void *ar)
+{
+  int i = syscall4 (SYS_PTHREADS_CREATE, thread, attr, start_routine, ar);
+  return i;
+}
+/****************************************************/
+
 void
 halt (void) 
 {

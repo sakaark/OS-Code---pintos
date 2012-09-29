@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <debug.h>
+#include "userprog/syscall.h"
 
 /* Process identifier. */
 typedef int pid_t;
@@ -18,6 +19,13 @@ typedef int mapid_t;
 /* Typical return values from main() and arguments to exit(). */
 #define EXIT_SUCCESS 0          /* Successful execution. */
 #define EXIT_FAILURE 1          /* Unsuccessful execution. */
+
+/****** Pthreads implementation *********/
+int
+pthread_create (pthread_t *thread, 
+		const pthread_attr_t *attr, 
+		void (*start_routine) (void *), void *arg);
+/****************************************/
 
 /* Projects 2 and later. */
 void halt (void) NO_RETURN;
