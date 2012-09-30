@@ -87,6 +87,18 @@ pthread_create (pthread_t *thread,
   int i = syscall4 (SYS_PTHREADS_CREATE, thread, attr, start_routine, ar);
   return i;
 }
+
+void
+pthread_exit (void *value_ptr)
+{
+  syscall1(SYS_PTHREADS_EXIT, value_ptr);
+}
+
+int
+pthread_join (pthread_t thread, void **retval)
+{
+  syscall2(SYS_PTHREADS_JOIN, thread, retval);
+}
 /****************************************************/
 
 void

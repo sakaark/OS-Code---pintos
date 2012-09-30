@@ -31,7 +31,9 @@ enum
     SYS_INUMBER,                /* Returns the inode number for a fd. */
 
     /*for Pthreads*/
-    SYS_PTHREADS_CREATE
+    SYS_PTHREADS_CREATE,
+    SYS_PTHREADS_EXIT,
+    SYS_PTHREADS_JOIN
   };
 
 #endif /* lib/syscall-nr.h */
