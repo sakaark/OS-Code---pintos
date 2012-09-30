@@ -7,6 +7,7 @@
 #include "lib/debug.h"
 #include "threads/synch.h"
 #include "lib/kernel/list.h"
+#include "userprog/mytest.c"
 
 /* datatypes and functions for Pthread implementation */
 #define PTHREAD_THREADS_MAX 10
@@ -73,16 +74,24 @@ syscall_handler (struct intr_frame *f UNUSED)
   int sys_call = *sp;
   
   switch (sys_call){
+    /*********** For Pthreads ******************/
   case SYS_HALT:            shutdown_power_off();
   case SYS_PTHREADS_CREATE: return sys_pthread_create(*(pthread_t **)(sp + 1), *(pthread_attr_t **)(sp + 2),
 						      *(thread_func **)(sp + 3), *(void **)(sp + 4));
   case SYS_PTHREADS_EXIT:   sys_pthread_exit(*(void **)(sp + 1));
   case SYS_PTHREADS_JOIN:   return sys_pthread_join(*(pthread_t *)(sp + 1), *(void ***)(sp + 2));
+
+
+    /************ For message queues ***********/
+  case SYS_MQ_OPEN:         return sys_mq_open(*(char **)(sp + 1), *(int *)(sp + 2));
+  case SYS_MQ_SEND:         return sys_mq_send(*(mqd_t *)(sp + 1), *(char **)(sp + 2), *(size_t *)(sp + 3), *(unsigned *)(sp + 4));
+  case SYS_MQ_RECEIVE:      return sys_mq_receive(*(mqd_t *)(sp + 1), *(char **)(sp + 2), *(size_t *)(sp + 3), *(unsigned **)(sp + 4));
+  case SYS_MQ_CLOSE:        return sys_mq_close(*(mqd_t *)(sp + 1));
+  case SYS_MQ_UNLINK:       return sys_mq_unlink(*(char **)(sp + 1));
+
   default:                  printf ("system call!\n"); thread_exit();
   }
   return;
-  //f -> eax = ret_val;
-  //return ret_val;
 }
 
 int

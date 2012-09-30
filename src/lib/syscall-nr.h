@@ -30,6 +30,13 @@ enum
     SYS_ISDIR,                  /* Tests if a fd represents a directory. */
     SYS_INUMBER,                /* Returns the inode number for a fd. */
 
+    /* For Message queues only */
+    SYS_MQ_OPEN,
+    SYS_MQ_SEND,
+    SYS_MQ_RECEIVE,
+    SYS_MQ_CLOSE,
+    SYS_MQ_UNLINK,
+
     /*for Pthreads*/
     SYS_PTHREADS_CREATE,
     SYS_PTHREADS_EXIT,

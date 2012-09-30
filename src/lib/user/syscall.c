@@ -2,6 +2,7 @@
 #include "lib/user/syscall.h"
 #include "../syscall-nr.h"
 
+
 /* Invokes syscall NUMBER, passing no arguments, and returns the
    return value as an `int'. */
 #define syscall0(NUMBER)                                        \
@@ -77,6 +78,34 @@
           retval;                                               \
         })
 
+/********** Message Queue Implementation ************/
+mqd_t mq_open(const char *name, int oflag)
+{
+  return syscall2 (SYS_MQ_OPEN, name, oflag);
+}
+
+int mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len, 
+	    unsigned msg_prio)
+{
+  return syscall4 (SYS_MQ_SEND, mqdes, msg_ptr, msg_len, msg_prio);
+}
+
+size_t mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len, 
+		  unsigned *msg_prio)
+{
+  return syscall4 (SYS_MQ_RECEIVE, mqdes, msg_ptr, msg_len, msg_prio);
+}
+
+int mq_close(mqd_t mqdes)
+{
+  return syscall1 (SYS_MQ_CLOSE, mqdes);
+}
+
+int mq_unlink(const char *name)
+{
+  return syscall1 (SYS_MQ_UNLINK, name);
+}
+/****************************************************/
 
 /********** Pthread implementation ******************/
 int
@@ -84,8 +113,7 @@ pthread_create (pthread_t *thread,
 		const pthread_attr_t *attr, 
 		void (*start_routine) (void *), void *ar)
 {
-  int i = syscall4 (SYS_PTHREADS_CREATE, thread, attr, start_routine, ar);
-  return i;
+  return syscall4 (SYS_PTHREADS_CREATE, thread, attr, start_routine, ar);
 }
 
 void
@@ -97,7 +125,7 @@ pthread_exit (void *value_ptr)
 int
 pthread_join (pthread_t thread, void **retval)
 {
-  syscall2(SYS_PTHREADS_JOIN, thread, retval);
+  return syscall2(SYS_PTHREADS_JOIN, thread, retval);
 }
 /****************************************************/
 

@@ -3,7 +3,13 @@
 
 #include <stdbool.h>
 #include <debug.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "userprog/syscall.h"
+
+/***for message queues****/
+typedef long long int mqd_t;
+/*************************/
 
 /* Process identifier. */
 typedef int pid_t;
@@ -19,6 +25,17 @@ typedef int mapid_t;
 /* Typical return values from main() and arguments to exit(). */
 #define EXIT_SUCCESS 0          /* Successful execution. */
 #define EXIT_FAILURE 1          /* Unsuccessful execution. */
+
+/***** Message queues implementation ****/
+mqd_t mq_open(const char *name, int oflag);
+int mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len, 
+		unsigned msg_prio);
+size_t mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len, 
+		      unsigned *msg_prio);
+int mq_close(mqd_t mqdes); 
+int mq_unlink(const char *name);
+
+/****************************************/
 
 /****** Pthreads implementation *********/
 int

@@ -4,12 +4,9 @@
 #include "threads/thread.h"
 #include "lib/debug.h"
 #include "userprog/syscall.h"
-int b = 10;
-char c[100] = "abcd";
+
 void printing2(void){
   printf("harrah 2!!\n");
-  int k = 5;
-  char a[100]= "ghij";
   pthread_exit("abcd");
 }
 
