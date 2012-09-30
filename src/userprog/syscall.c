@@ -68,8 +68,8 @@ syscall_handler (struct intr_frame *f UNUSED)
   
   switch (sys_call){
   case SYS_HALT:            shutdown_power_off();
-  case SYS_PTHREADS_CREATE: return sys_pthread_create(*(sp + 1), *(sp + 2), 
-					       *(sp + 3), *(sp + 4));
+  case SYS_PTHREADS_CREATE: return sys_pthread_create(*(pthread_t **)(sp + 1), *(pthread_attr_t **)(sp + 2), 
+						      *(thread_func **)(sp + 3), *(void **)(sp + 4));
   default:                  printf ("system call!\n"); thread_exit();
   }
 }

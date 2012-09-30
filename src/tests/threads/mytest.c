@@ -17,6 +17,7 @@ void test_mytest(){
   x.schedpolicy = SCHED_FCFS;
   x.sched_priority = 31;
   printf("Hello World!\n");
+  t = malloc(sizeof(pthread_t));
   //halt();
   //debug_backtrace_all();
   //halt();
