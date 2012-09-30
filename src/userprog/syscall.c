@@ -63,14 +63,15 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  int sys_call = *((char *)(&(f -> vec_no)) + 24);
-  debug_backtrace_all();
-  if(sys_call == SYS_HALT)
-    printf("gotcha!\n");
-  //shutdown_power_off();
-  printf ("system call!\n");
-  //go();
-  thread_exit ();
+  int *sp = ((char *)(&(f -> vec_no)) + 24);
+  int sys_call = *sp;
+  
+  switch (sys_call){
+  case SYS_HALT:            shutdown_power_off();
+  case SYS_PTHREADS_CREATE: return sys_pthread_create(*(sp + 1), *(sp + 2), 
+					       *(sp + 3), *(sp + 4));
+  default:                  printf ("system call!\n"); thread_exit();
+  }
 }
 
 int
