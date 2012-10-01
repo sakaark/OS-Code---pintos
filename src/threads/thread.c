@@ -142,7 +142,7 @@ thread_tick (void)
     kernel_ticks++;
 
   /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE)
+  if ((++thread_ticks >= TIME_SLICE) && (sched_policy == SCHED_RR))
     intr_yield_on_return ();
 }
 
@@ -502,8 +502,24 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
+  else if (sched_policy != SCHED_PRIORITY)
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  else{
+    enum intr_level old_level = intr_disable();
+    struct list_elem *e;
+    struct thread *retval;
+    int prio = -1;
+    for (e = list_begin (&ready_list); e != list_end (&ready_list);
+	 e = list_next (e))
+      {
+	struct thread *f = list_entry (e, struct thread, elem);
+	if(f->priority > prio){
+	  prio = f->priority;
+	  retval = f;
+	  intr_set_level(old_level);
+	}
+      }
+  }
 }
 
 /* Completes a thread switch by activating the new thread's page
