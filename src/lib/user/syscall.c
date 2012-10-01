@@ -84,8 +84,7 @@ pthread_create (pthread_t *thread,
 		const pthread_attr_t *attr, 
 		void (*start_routine) (void *), void *ar)
 {
-  int i = syscall4 (SYS_PTHREADS_CREATE, thread, attr, start_routine, ar);
-  return i;
+  return syscall4 (SYS_PTHREADS_CREATE, thread, attr, start_routine, ar);
 }
 
 void
@@ -97,7 +96,7 @@ pthread_exit (void *value_ptr)
 int
 pthread_join (pthread_t thread, void **retval)
 {
-  syscall2(SYS_PTHREADS_JOIN, thread, retval);
+  return syscall2(SYS_PTHREADS_JOIN, thread, retval);
 }
 /****************************************************/
 
