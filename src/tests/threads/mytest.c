@@ -29,7 +29,8 @@ void printing(void){
   else if(i == ESRCH) printf("No such thread! = %d\n", i);
   else printf("i = %d\n", i);
   printf("joined = %d\n", *p);
-  pthread_exit("hi");
+  int a = 10;
+  pthread_exit(&a);
 }
 
 void test_mytest(){

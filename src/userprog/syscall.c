@@ -19,6 +19,7 @@ struct pthread_info{
   void *value_ptr;
   struct semaphore running;
   struct list_elem elem;
+  int done;
 };
 
 int thread_count = 0;
@@ -115,7 +116,7 @@ sys_pthread_create (pthread_t *thread,
 
   t -> pthread_id = *thread;
   t -> detachstate = attr -> detachstate;
-
+  t -> done = 0;
   sema_init(&(t -> running), 0);
   char name[50];
   snprintf(name, 50, "%d", t -> pthread_id);
@@ -187,11 +188,19 @@ int sys_pthread_join(pthread_t thread, void **retval){
 	sema_down(&(f -> running));
 	lock_acquire(&listuse);
 	
-	*retval = f -> value_ptr;
-	list_remove(e);
-	free(f);
-	lock_release(&listuse);
-	return 0;
+	if(f->done == 0){
+	  *retval = f -> value_ptr;
+	  f -> pthread_id = -1;
+	  f -> done = 1;
+	  lock_release(&listuse);
+	  sema_up(&(f -> running));
+	  return 0;
+	}
+	else{
+	  lock_release(&listuse);
+	  sema_up(&(f -> running));
+	  return ESRCH;
+	}
       }
     }
   lock_release(&listuse);

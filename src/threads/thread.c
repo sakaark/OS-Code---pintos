@@ -77,6 +77,7 @@ static tid_t allocate_tid (void);
 //to implement the function pthread_cancel, and pthread_schedparam
 void thread_cancel(pthread_t n, enum intr_level old_level);
 void thread_set_priority_now(pthread_t n , int priority);
+void set_sched_policy(int n);
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
