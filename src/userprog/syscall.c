@@ -27,6 +27,7 @@ int id_count = 1;
 struct list pthread_list;
 struct lock threadcount; //to prevent simultanious use of thread_count.
 struct lock listuse; //to prevent simultaneous use of pthread_list
+ 
 
 int
 sys_pthread_create (pthread_t *thread, 
@@ -81,6 +82,11 @@ sys_pthread_create (pthread_t *thread,
 
   if(thread_count >= PTHREAD_THREADS_MAX){
     return EAGAIN;
+  }
+
+  if (attr == NULL){
+    attr = malloc(sizeof(pthread_attr_t));
+    sys_pthread_attr_init(attr);
   }
 
   //check for valid attr object
@@ -176,9 +182,11 @@ int sys_pthread_join(pthread_t thread, void **retval){
 	  lock_release(&listuse);
 	  return EINVAL;
 	}
+
 	lock_release(&listuse);
 	sema_down(&(f -> running));
 	lock_acquire(&listuse);
+	
 	*retval = f -> value_ptr;
 	list_remove(e);
 	free(f);
@@ -204,6 +212,11 @@ int sys_pthread_cancel(pthread_t thread){
 	list_remove(e);
 	lock_release(&listuse);
 	free(f);
+
+	lock_acquire(&threadcount);
+	thread_count--;
+	lock_release(&threadcount);
+	
 	return 0;
       }
     }
@@ -212,10 +225,12 @@ int sys_pthread_cancel(pthread_t thread){
 }
 
 int sys_pthread_attr_init(pthread_attr_t *attr){
+  
   attr -> detachstate = JOINED;
   attr -> inheritsched = 1;
   attr -> schedpolicy = SCHED_RR;
   attr -> sched_priority = 31;
+
   return 0;
 }
 

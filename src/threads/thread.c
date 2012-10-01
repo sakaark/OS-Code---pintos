@@ -142,7 +142,9 @@ thread_tick (void)
     kernel_ticks++;
 
   /* Enforce preemption. */
-  if ((++thread_ticks >= TIME_SLICE) && (sched_policy == SCHED_RR))
+  //printf("%d ", thread_ticks);
+  thread_ticks++;
+  if ((thread_ticks >= TIME_SLICE) && (sched_policy == SCHED_RR))
     intr_yield_on_return ();
 }
 
@@ -516,9 +518,11 @@ next_thread_to_run (void)
 	if(f->priority > prio){
 	  prio = f->priority;
 	  retval = f;
-	  intr_set_level(old_level);
 	}
       }
+    intr_set_level(old_level);
+    list_remove(&(retval -> elem));
+    return retval;
   }
 }
 

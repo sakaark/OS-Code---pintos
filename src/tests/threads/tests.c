@@ -21,6 +21,7 @@ static const struct test tests[] =
     {"mytest2", test_mytest2},
     {"mytest3", test_mytest3},
     {"mytest4", test_mytest4},
+    {"prod_cons", test_prod_cons},
     {"priority-change", test_priority_change},
     {"priority-donate-one", test_priority_donate_one},
     {"priority-donate-multiple", test_priority_donate_multiple},

@@ -15,6 +15,7 @@ extern test_func test_mytest;
 extern test_func test_mytest2;
 extern test_func test_mytest3;
 extern test_func test_mytest4;
+extern test_func test_prod_cons;
 extern test_func test_priority_change;
 extern test_func test_priority_donate_one;
 extern test_func test_priority_donate_multiple;
