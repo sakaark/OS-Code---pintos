@@ -161,7 +161,9 @@ void sys_pthread_exit (void *value_ptr){
   }
 
   else{
-    req_elem -> value_ptr = value_ptr;
+    //req_elem -> value_ptr = value_ptr;
+    req_elem -> value_ptr = malloc(sizeof(void *));
+    *(int *)(req_elem -> value_ptr) = *(int *)value_ptr;
     sema_up_all(&(req_elem -> running));
   }
 
