@@ -70,7 +70,8 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-
+//to implement the function pthread_cancel
+void thread_cancel(int n, enum intr_level old_level);
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -84,6 +85,7 @@ static tid_t allocate_tid (void);
 
    It is not safe to call thread_current() until this function
    finishes. */
+
 void
 thread_init (void) 
 {
@@ -568,6 +570,42 @@ schedule (void)
   thread_schedule_tail (prev);
 }
 
+void thread_cancel(int n, enum intr_level old_level)
+{
+  ASSERT(intr_get_level() == INTR_OFF);
+  struct list_elem *e;
+  char a[4];
+  snprintf(a, 4, "%d", n);
+  for (e = list_begin (&ready_list); e != list_end (&ready_list);
+       e = list_next (e))
+    {
+      struct thread *f = list_entry (e, struct thread, elem);
+      if(!strcmp(a, f -> name)){
+	list_remove(e);
+	list_remove(&(f -> allelem));
+	f->status = THREAD_DYING;
+	palloc_free_page(f);
+	intr_set_level(old_level);
+	return;
+      }
+    }
+  
+  for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+    {
+      struct thread *f = list_entry (e, struct thread, allelem);
+      if(!strcmp(a, f -> name)){
+	list_remove(e);
+	f->status = THREAD_DYING;
+	palloc_free_page(f);
+	intr_set_level(old_level);
+	return;
+      }
+    }
+  NOT_REACHED();
+}
+
+
 /* Returns a tid to use for a new thread. */
 static tid_t
 allocate_tid (void) 
@@ -581,6 +619,7 @@ allocate_tid (void)
 
   return tid;
 }
+
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */

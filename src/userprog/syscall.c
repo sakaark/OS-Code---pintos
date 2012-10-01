@@ -7,6 +7,7 @@
 #include "lib/debug.h"
 #include "threads/synch.h"
 #include "lib/kernel/list.h"
+#include "threads/interrupt.h"
 
 /* datatypes and functions for Pthread implementation */
 #define PTHREAD_THREADS_MAX 10
@@ -54,6 +55,7 @@ sys_pthread_create (pthread_t *thread,
 void sys_pthread_exit (void *value_ptr);
 int sys_pthread_join(pthread_t thread, void **retval);
 int sys_pthread_cancel(pthread_t thread);
+int pthread_attr_init(pthread_attr_t *attr);
 /******************************************************/
 
 static void syscall_handler (struct intr_frame *);
@@ -202,12 +204,15 @@ int sys_pthread_join(pthread_t thread, void **retval){
 
 int sys_pthread_cancel(pthread_t thread){
   struct list_elem *e;
+  enum intr_level old_level;
   lock_acquire(&listuse);
   for (e = list_begin (&pthread_list); e != list_end (&pthread_list);
        e = list_next (e))
     {
       struct pthread_info *f = list_entry (e, struct pthread_info, elem);
       if(f -> pthread_id == thread){
+	old_level = intr_disable();
+	thread_cancel(f->pthread_id, old_level);
 	list_remove(e);
 	lock_release(&listuse);
 	free(f);
@@ -216,4 +221,13 @@ int sys_pthread_cancel(pthread_t thread){
     }
   lock_release(&listuse);
   return ESRCH;
+}
+
+int pthread_attr_init(pthread_attr_t *attr){
+  attr = malloc(sizeof(pthread_attr_t));
+  attr -> detachstate = JOINED;
+  attr -> inheritsched = 1;
+  attr -> schedpolicy = SCHED_RR;
+  attr -> sched_priority = 31;
+  return 0;
 }

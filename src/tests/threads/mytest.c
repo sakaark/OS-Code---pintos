@@ -7,6 +7,7 @@
 
 void printing2(void){
   printf("harrah 2!!\n");
+  int a = 2;
   pthread_exit("abcd");
 }
 
@@ -23,7 +24,7 @@ void printing(void){
   char *p;
   char z='c';
   p = &z;
-  //  pthread_cancel(*t);
+  //pthread_cancel(*t);
   int i = pthread_join(*t, &p);
   if(i == 0) printf("Correct return status = %d\n", i);
   else if(i == EINVAL) printf("Maybe correct status = %d\n", i);
