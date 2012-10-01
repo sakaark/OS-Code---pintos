@@ -90,13 +90,21 @@ pthread_create (pthread_t *thread,
 void
 pthread_exit (void *value_ptr)
 {
-  syscall1(SYS_PTHREADS_EXIT, value_ptr);
+  syscall1 (SYS_PTHREADS_EXIT, value_ptr);
 }
 
 int
 pthread_join (pthread_t thread, void **retval)
 {
-  return syscall2(SYS_PTHREADS_JOIN, thread, retval);
+  void **k;
+  k = retval;
+  return syscall2 (SYS_PTHREADS_JOIN, thread, k);
+}
+
+int
+pthread_cancel (pthread_t thread)
+{
+  return syscall1 (SYS_PTHREADS_CANCEL, thread);
 }
 /****************************************************/
 

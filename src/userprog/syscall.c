@@ -52,7 +52,8 @@ sys_pthread_create (pthread_t *thread,
 		void (*start_routine) (void *), void *arg);
 
 void sys_pthread_exit (void *value_ptr);
-int sys_pthread_join(pthread_t thread, void **retval); 
+int sys_pthread_join(pthread_t thread, void **retval);
+int sys_pthread_cancel(pthread_t thread);
 /******************************************************/
 
 static void syscall_handler (struct intr_frame *);
@@ -71,18 +72,18 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   int *sp = ((char *)(&(f -> vec_no)) + 24);
   int sys_call = *sp;
+  int k;
   
   switch (sys_call){
   case SYS_HALT:            shutdown_power_off();
-  case SYS_PTHREADS_CREATE: return sys_pthread_create(*(pthread_t **)(sp + 1), *(pthread_attr_t **)(sp + 2),
-						      *(thread_func **)(sp + 3), *(void **)(sp + 4));
+  case SYS_PTHREADS_CREATE: k = sys_pthread_create(*(pthread_t **)(sp + 1), *(pthread_attr_t **)(sp + 2),
+						   *(thread_func **)(sp + 3), *(void **)(sp + 4)); f -> eax = k; break;
   case SYS_PTHREADS_EXIT:   sys_pthread_exit(*(void **)(sp + 1));
-  case SYS_PTHREADS_JOIN:   return sys_pthread_join(*(pthread_t *)(sp + 1), *(void ***)(sp + 2));
+  case SYS_PTHREADS_JOIN:   k = sys_pthread_join(*(pthread_t *)(sp + 1), *(void ***)(sp + 2)); f -> eax = k; break;
+  case SYS_PTHREADS_CANCEL:  k = sys_pthread_cancel(*(pthread_t *)(sp + 1)); f -> eax = k; break;
   default:                  printf ("system call!\n"); thread_exit();
   }
   return;
-  //f -> eax = ret_val;
-  //return ret_val;
 }
 
 int
@@ -133,14 +134,6 @@ sys_pthread_create (pthread_t *thread,
   int td;
   td = thread_create(name, attr -> sched_priority, start_routine, arg);
 
-  if(td == TID_ERROR){
-    list_remove(&(t -> elem));
-    lock_acquire(&threadcount);
-    thread_count--;
-    lock_release(&threadcount);
-    return TID_ERROR;
-  }
-
   return 0;
 }
 
@@ -166,8 +159,6 @@ void sys_pthread_exit (void *value_ptr){
   }
 
   else{
-    /*req_elem -> value_ptr = malloc(sizeof(void *));
-     *(int *)(req_elem->value_ptr) = *(int *)(value_ptr);*/
     req_elem -> value_ptr = value_ptr;
     sema_up_all(&(req_elem -> running));
   }
@@ -185,7 +176,6 @@ void sys_pthread_exit (void *value_ptr){
 int sys_pthread_join(pthread_t thread, void **retval){
   struct list_elem *e;
   struct pthread_info *req_elem;
-  printf("here comes the lock!\n");
   lock_acquire(&listuse);
   for (e = list_begin (&pthread_list); e != list_end (&pthread_list);
        e = list_next (e))
@@ -194,21 +184,36 @@ int sys_pthread_join(pthread_t thread, void **retval){
       if(f -> pthread_id == thread){
 	if(f -> detachstate == DETACHED){
 	  lock_release(&listuse);
-	  return 4;
+	  return EINVAL;
 	}
 	lock_release(&listuse);
 	sema_down(&(f -> running));
 	lock_acquire(&listuse);
-	//retval = malloc(sizeof(void *));
-	//retval[0] = f -> value_ptr;
 	*retval = f -> value_ptr;
-	//retval = (f -> value_ptr);
 	list_remove(e);
-	//free(f);
+	free(f);
 	lock_release(&listuse);
 	return 0;
       }
     }
   lock_release(&listuse);
-  return ESRCH_J;
+  return ESRCH;
+}
+
+int sys_pthread_cancel(pthread_t thread){
+  struct list_elem *e;
+  lock_acquire(&listuse);
+  for (e = list_begin (&pthread_list); e != list_end (&pthread_list);
+       e = list_next (e))
+    {
+      struct pthread_info *f = list_entry (e, struct pthread_info, elem);
+      if(f -> pthread_id == thread){
+	list_remove(e);
+	lock_release(&listuse);
+	free(f);
+	return 0;
+      }
+    }
+  lock_release(&listuse);
+  return ESRCH;
 }

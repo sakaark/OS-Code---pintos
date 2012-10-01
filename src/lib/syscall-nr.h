@@ -33,7 +33,8 @@ enum
     /*for Pthreads*/
     SYS_PTHREADS_CREATE,
     SYS_PTHREADS_EXIT,
-    SYS_PTHREADS_JOIN
+    SYS_PTHREADS_JOIN,
+    SYS_PTHREADS_CANCEL
   };
 
 #endif /* lib/syscall-nr.h */
