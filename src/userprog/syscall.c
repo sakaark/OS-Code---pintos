@@ -9,29 +9,9 @@
 #include "lib/kernel/list.h"
 #include "threads/interrupt.h"
 
-/* datatypes and functions for Pthread implementation */
+/****************** Datatypes and functions for Pthread implementation ********************/
 #define PTHREAD_THREADS_MAX 10
-/*
-//pthread_create errors (1 = max threads already running, 2 = invalid attr)
-#define EAGAIN 1
-#define EINVAL 2
 
-//pthread_join errors (1 = detached thread. 2 = invalid pthread_t)
-#define EINVAL_J 1
-#define ESRCH_J  2
-*/
-/*typedef int pthread_t;
-typedef enum{DETACHED, JOINED} attr_detach_state;
-typedef enum{SCHED_FCFS, SCHED_RR, SCHED_PRIORITY} attr_sched_policy;
-
-//Attributes object
-typedef struct attr{
-  int detachstate;
-  int inheritsched;
-  int schedpolicy;
-  int sched_priority;
-} pthread_attr_t;
-*/
 //Datatypes for containing the data for all the ready threads.
 struct pthread_info{
   int pthread_id;
@@ -42,6 +22,7 @@ struct pthread_info{
 };
 
 int thread_count = 0;
+int id_count = 1;
 
 struct list pthread_list;
 struct lock threadcount; //to prevent simultanious use of thread_count.
@@ -55,8 +36,10 @@ sys_pthread_create (pthread_t *thread,
 void sys_pthread_exit (void *value_ptr);
 int sys_pthread_join(pthread_t thread, void **retval);
 int sys_pthread_cancel(pthread_t thread);
-int pthread_attr_init(pthread_attr_t *attr);
-/******************************************************/
+int sys_pthread_attr_init(pthread_attr_t *attr);
+int sys_pthread_attr_destroy(pthread_attr_t *attr);
+int sys_pthread_setschedparam (pthread_t thread, int policy, int sched_priority);
+/*******************************************************************************************/
 
 static void syscall_handler (struct intr_frame *);
 
@@ -77,13 +60,16 @@ syscall_handler (struct intr_frame *f UNUSED)
   int k;
   
   switch (sys_call){
-  case SYS_HALT:            shutdown_power_off();
-  case SYS_PTHREADS_CREATE: k = sys_pthread_create(*(pthread_t **)(sp + 1), *(pthread_attr_t **)(sp + 2),
-						   *(thread_func **)(sp + 3), *(void **)(sp + 4)); f -> eax = k; break;
-  case SYS_PTHREADS_EXIT:   sys_pthread_exit(*(void **)(sp + 1));
-  case SYS_PTHREADS_JOIN:   k = sys_pthread_join(*(pthread_t *)(sp + 1), *(void ***)(sp + 2)); f -> eax = k; break;
-  case SYS_PTHREADS_CANCEL:  k = sys_pthread_cancel(*(pthread_t *)(sp + 1)); f -> eax = k; break;
-  default:                  printf ("system call!\n"); thread_exit();
+  case SYS_HALT:                  shutdown_power_off();
+  case SYS_PTHREADS_CREATE:       k = sys_pthread_create(*(pthread_t **)(sp + 1), *(pthread_attr_t **)(sp + 2), *(thread_func **)(sp + 3), *(void **)(sp + 4)); 
+                                  f -> eax = k; break;
+  case SYS_PTHREADS_EXIT:         sys_pthread_exit(*(void **)(sp + 1)); break;
+  case SYS_PTHREADS_JOIN:         k = sys_pthread_join(*(pthread_t *)(sp + 1), *(void ***)(sp + 2)); f -> eax = k; break;
+  case SYS_PTHREADS_CANCEL:       k = sys_pthread_cancel(*(pthread_t *)(sp + 1)); f -> eax = k; break;
+  case SYS_PTHREADS_ATTR_INIT:    k = sys_pthread_attr_init(*(pthread_attr_t **)(sp + 1)); f -> eax = k; break;
+  case SYS_PTHREADS_ATTR_DESTROY: k = sys_pthread_attr_destroy(*(pthread_attr_t **)(sp + 1)); f -> eax = k; break;
+  case SYS_PTHREADS_SETSCHEDPARAM: k = sys_pthread_setschedparam(*(pthread_t **)(sp + 1), *(int **)(sp + 2), *(int **)(sp + 3)); f -> eax = k; break;
+  default:                        printf ("system call!\n"); thread_exit();
   }
   return;
 }
@@ -115,7 +101,7 @@ sys_pthread_create (pthread_t *thread,
 
   thread_count++;
 
-  *thread = thread_count;
+  *thread = id_count++;
   lock_release(&threadcount);
 
   struct pthread_info *t;
@@ -125,14 +111,16 @@ sys_pthread_create (pthread_t *thread,
   t -> detachstate = attr -> detachstate;
 
   sema_init(&(t -> running), 0);
-  char name[4];
-  snprintf(name, 4, "%d", t -> pthread_id);
-  //printf("The name is %s\n", name);
+  char name[50];
+  snprintf(name, 50, "%d", t -> pthread_id);
 
   lock_acquire(&listuse);
   list_push_back(&pthread_list, &(t -> elem));
   lock_release(&listuse);
- 
+
+  if(attr -> inheritsched != 1)
+    set_sched_policy(attr -> schedpolicy);
+
   int td;
   td = thread_create(name, attr -> sched_priority, start_routine, arg);
 
@@ -161,7 +149,6 @@ void sys_pthread_exit (void *value_ptr){
   }
 
   else{
-    //req_elem -> value_ptr = value_ptr;
     req_elem -> value_ptr = malloc(sizeof(void *));
     *(int *)(req_elem -> value_ptr) = *(int *)value_ptr;
     sema_up_all(&(req_elem -> running));
@@ -174,7 +161,6 @@ void sys_pthread_exit (void *value_ptr){
   lock_release(&threadcount);
 
   thread_exit();
-
 }
 
 int sys_pthread_join(pthread_t thread, void **retval){
@@ -225,11 +211,43 @@ int sys_pthread_cancel(pthread_t thread){
   return ESRCH;
 }
 
-int pthread_attr_init(pthread_attr_t *attr){
-  attr = malloc(sizeof(pthread_attr_t));
+int sys_pthread_attr_init(pthread_attr_t *attr){
   attr -> detachstate = JOINED;
   attr -> inheritsched = 1;
   attr -> schedpolicy = SCHED_RR;
   attr -> sched_priority = 31;
   return 0;
+}
+
+int sys_pthread_attr_destroy(pthread_attr_t *attr){
+  attr -> detachstate = ATTR_DESTROY;
+  attr -> inheritsched = ATTR_DESTROY;
+  attr -> schedpolicy = ATTR_DESTROY;
+  attr -> sched_priority = ATTR_DESTROY;
+  return 0;
+}
+
+int sys_pthread_setschedparam (pthread_t thread, int policy, int sched_priority){
+  if(((policy != SCHED_FCFS) &&
+      (policy != SCHED_RR) &&
+      (policy != SCHED_PRIORITY)) ||
+     ((sched_priority < 0) ||
+      (sched_priority >63)))
+    return EINVAL;
+
+  struct list_elem *e;
+  lock_acquire(&listuse);
+  for (e = list_begin (&pthread_list); e != list_end (&pthread_list);
+       e = list_next (e))
+    {
+      struct pthread_info *f = list_entry (e, struct pthread_info, elem);
+      if(f -> pthread_id == thread){
+	thread_set_priority_now(thread, sched_priority);
+	lock_release(&listuse);
+	set_sched_policy(policy);
+	return 0;
+      }
+    }
+  lock_release(&listuse);
+  return ESRCH;
 }

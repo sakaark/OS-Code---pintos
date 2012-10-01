@@ -1,3 +1,4 @@
+
 //#include <syscall.h>
 #include "lib/user/syscall.h"
 #include "../syscall-nr.h"
@@ -105,6 +106,27 @@ int
 pthread_cancel (pthread_t thread)
 {
   return syscall1 (SYS_PTHREADS_CANCEL, thread);
+}
+
+int
+pthread_attr_init (pthread_attr_t *attr)
+{
+  pthread_attr_t *k;
+  k = attr;
+  return syscall1 (SYS_PTHREADS_ATTR_INIT, k);
+}
+
+int
+pthread_attr_destroy (pthread_attr_t *attr)
+{
+  pthread_attr_t *k;
+  k = attr;
+  return syscall1 (SYS_PTHREADS_ATTR_DESTROY, k);
+}
+
+int pthread_setschedparam (pthread_t thread, int policy, int sched_priority)
+{
+  return syscall3 (SYS_PTHREADS_SETSCHEDPARAM, thread, policy, sched_priority);
 }
 /****************************************************/
 

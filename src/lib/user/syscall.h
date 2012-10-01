@@ -1,3 +1,4 @@
+
 #ifndef __LIB_USER_SYSCALL_H
 #define __LIB_USER_SYSCALL_H
 
@@ -28,6 +29,9 @@ pthread_create (pthread_t *thread,
 void pthread_exit (void *value_ptr);
 int pthread_join(pthread_t thread, void **retval);
 int pthread_cancel(pthread_t thread);
+int pthread_attr_init(pthread_attr_t *attr);
+int sys_pthread_attr_destroy(pthread_attr_t *attr);
+int pthread_setschedparam (pthread_t thread, int policy, int sched_priority);
 /****************************************/
 
 /* Projects 2 and later. */

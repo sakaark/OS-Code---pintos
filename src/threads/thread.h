@@ -1,3 +1,4 @@
+
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
@@ -137,5 +138,9 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+/* Functions required to implement Pthreads */
+//void thread_cancel(int n, enum intr_level old_level);
+//void thread_set_priority_now(int n , int priority);
 
 #endif /* threads/thread.h */

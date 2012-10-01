@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "userprog/syscall.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -19,6 +20,9 @@
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
+
+/*********** Scheduling Policy Implementation - Pthreads ***************/
+int sched_policy = SCHED_RR;
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
@@ -70,8 +74,9 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-//to implement the function pthread_cancel
-void thread_cancel(int n, enum intr_level old_level);
+//to implement the function pthread_cancel, and pthread_schedparam
+void thread_cancel(pthread_t n, enum intr_level old_level);
+void thread_set_priority_now(pthread_t n , int priority);
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -570,12 +575,12 @@ schedule (void)
   thread_schedule_tail (prev);
 }
 
-void thread_cancel(int n, enum intr_level old_level)
+void thread_cancel(pthread_t n, enum intr_level old_level)
 {
   ASSERT(intr_get_level() == INTR_OFF);
   struct list_elem *e;
-  char a[4];
-  snprintf(a, 4, "%d", n);
+  char a[50];
+  snprintf(a, 50, "%d", n);
   for (e = list_begin (&ready_list); e != list_end (&ready_list);
        e = list_next (e))
     {
@@ -605,6 +610,32 @@ void thread_cancel(int n, enum intr_level old_level)
   NOT_REACHED();
 }
 
+void thread_set_priority_now(pthread_t n , int priority)
+{
+  struct list_elem *e;
+  char a[50];
+  snprintf(a, 50, "%d", n);
+  enum intr_level old_level = intr_disable();
+
+  for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+    {
+      struct thread *f = list_entry (e, struct thread, allelem);
+      if(!strcmp(a, f -> name)){
+	f->priority = priority;
+	intr_set_level(old_level);
+	return;
+      }
+    }
+  NOT_REACHED();
+}
+
+//sets a new scheduling policy
+void set_sched_policy(int n)
+{
+  sched_policy = n;
+  return;
+}
 
 /* Returns a tid to use for a new thread. */
 static tid_t

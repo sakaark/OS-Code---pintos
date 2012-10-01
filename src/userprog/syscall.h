@@ -19,6 +19,9 @@ typedef struct attri {
 #define EINVAL 2
 #define ESRCH  3
 
+//destry value for attr object
+#define ATTR_DESTROY 100
+
 #ifndef USERPROG_SYSCALL_H
 #define USERPROG_SYSCALL_H
 
