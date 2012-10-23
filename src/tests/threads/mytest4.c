@@ -27,7 +27,7 @@ void prin2(void){
 
 void prin1(void){
   printf("Entered prin1\n");
-  pthread_t *t;
+  /*pthread_t *t;
   t = malloc(sizeof(pthread_t));
 
   pthread_attr_t x;
@@ -36,10 +36,10 @@ void prin1(void){
   x.inheritsched = 0;
   x.sched_priority = 20;
 
-  pthread_create(t, &x, &prin3, NULL);
+  pthread_create(t, &x, &prin3, NULL);*/
 
   int *p;
-  int i = pthread_join(*t, &p);
+  int i = pthread_join(3, &p);
   if(i == 0) printf("Correct return status = %d\n", i);
   else if(i == EINVAL) printf("Maybe correct status = %d\n", i);
   else if(i == ESRCH) printf("No such thread! = %d\n", i);
@@ -57,6 +57,9 @@ void test_mytest4(){
   pthread_t *z;
   z = malloc(sizeof(pthread_t));
 
+  pthread_t *k;
+  k = malloc(sizeof(pthread_t));
+
   pthread_attr_t x;
   pthread_attr_init(&x);
   x.schedpolicy = SCHED_PRIORITY;
@@ -66,8 +69,10 @@ void test_mytest4(){
   printf("Hello World! %s\n", thread_name());
 
   pthread_create(t, &x, &prin1, NULL);
-  x.sched_priority = 38;
+  x.sched_priority = 50;
   pthread_create(z, &x, &prin2, NULL);
+  x.sched_priority = 20;
+  pthread_create(k, &x, &prin3, NULL);
 
   pthread_attr_destroy(&x);
   thread_exit();

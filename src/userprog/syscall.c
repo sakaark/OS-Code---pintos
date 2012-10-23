@@ -192,6 +192,7 @@ int sys_pthread_join(pthread_t thread, void **retval){
 	  *retval = f -> value_ptr;
 	  f -> pthread_id = -1;
 	  f -> done = 1;
+	  list_remove(&(f -> elem));
 	  lock_release(&listuse);
 	  sema_up(&(f -> running));
 	  return 0;
