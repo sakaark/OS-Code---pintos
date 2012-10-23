@@ -1,4 +1,6 @@
-//#include "userprog/syscall.h"
+#ifndef THREADS_INIT_H
+#include "userprog/syscall.h"
+#endif
 #include <stdio.h>
 #include <syscall-nr.h>
 #include <stdlib.h>
