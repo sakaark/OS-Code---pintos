@@ -76,6 +76,12 @@ exit (int status)
 }
 
 pid_t
+fork ()
+{
+  return (pid_t) syscall0 (SYS_FORK);
+}
+
+pid_t
 exec (const char *file)
 {
   return (pid_t) syscall1 (SYS_EXEC, file);

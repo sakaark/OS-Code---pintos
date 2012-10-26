@@ -2,7 +2,7 @@
 #define THREADS_THREAD_H
 
 #include <debug.h>
-#include <list.h>
+#include "lib/kernel/list.h"
 #include <stdint.h>
 
 /* States in a thread's life cycle. */
@@ -98,6 +98,7 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
+    bool forking;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };

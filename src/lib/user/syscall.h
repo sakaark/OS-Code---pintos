@@ -22,6 +22,7 @@ typedef int mapid_t;
 /* Projects 2 and later. */
 void halt (void) NO_RETURN;
 void exit (int status) NO_RETURN;
+pid_t fork ();
 pid_t exec (const char *file);
 int wait (pid_t);
 bool create (const char *file, unsigned initial_size);
