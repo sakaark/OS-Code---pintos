@@ -19,6 +19,7 @@
 #include "threads/vaddr.h"
 
 static thread_func start_process NO_RETURN;
+static thread_func fork_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
 /* Starts a new thread running a user program loaded from
@@ -42,6 +43,14 @@ process_execute (const char *file_name)
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  return tid;
+}
+
+tid_t
+fork_execute (void *eipf) 
+{
+  tid_t tid=0;
+  tid = fork_create ("forked", PRI_DEFAULT, fork_process, eipf);
   return tid;
 }
 
@@ -72,7 +81,43 @@ start_process (void *file_name_)
      arguments on the stack in the form of a `struct intr_frame',
      we just point the stack pointer (%esp) to our stack frame
      and jump to it. */
+  /*if (thread_current()->forking == true){
+    asm volatile ("addl $4, %esp; jmp intr_exit");
+  }*/
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
+  NOT_REACHED ();
+}
+
+static void 
+fork_process (void *eipf)
+{
+  //char *file_name = file_name_;
+  struct intr_frame if_;
+  bool success;
+
+  /* Initialize interrupt frame and load executable. */
+  memset (&if_, 0, sizeof if_);
+  if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
+  if_.cs = SEL_UCSEG;
+  if_.eflags = FLAG_IF | FLAG_MBS;
+  success = load ("echo", &if_.eip, &if_.esp);
+  if_.eip = (void (*)(void))eipf;
+
+  /* If load failed, quit. */
+  //palloc_free_page (file_name);
+  if (!success) 
+    thread_exit ();
+
+  /* Start the user process by simulating a return from an
+     interrupt, implemented by intr_exit (in
+     threads/intr-stubs.S).  Because intr_exit takes all of its
+     arguments on the stack in the form of a `struct intr_frame',
+     we just point the stack pointer (%esp) to our stack frame
+     and jump to it. */
+  /*if (thread_current()->forking == true){
+    asm volatile ("addl $4, %esp; jmp intr_exit");
+  }*/
+  asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" ((struct intr_frame *)eipf) : "memory");
   NOT_REACHED ();
 }
 

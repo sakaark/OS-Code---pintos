@@ -99,6 +99,8 @@ struct thread
 #endif
 
     bool forking;
+    struct thread *restore;
+    struct thread *parent;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
@@ -116,6 +118,7 @@ void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
+tid_t fork_create(const char *name, int priority, thread_func *function, void *aux);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
@@ -126,6 +129,8 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+int thread_fork();
+int thread_fork2();
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);

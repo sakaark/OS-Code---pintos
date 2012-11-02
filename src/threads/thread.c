@@ -69,7 +69,42 @@ static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
+int thread_fork();
+int thread_fork2();
 static tid_t allocate_tid (void);
+void print_ready_list(void);
+tid_t fork_create(const char *name, int priority, thread_func *function, void *aux);
+void
+print_all_list()
+{
+  struct list_elem *e;
+
+  ASSERT (intr_get_level () == INTR_OFF);
+
+  for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      printf("%s ", t->name);
+    }
+  printf("\n");
+}
+
+void
+print_ready_list()
+{
+  struct list_elem *e;
+
+  ASSERT (intr_get_level () == INTR_OFF);
+
+  for (e = list_begin (&ready_list); e != list_end (&ready_list);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, elem);
+      printf("%s ", t->name);
+    }
+  printf("\n");
+}
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -135,7 +170,7 @@ thread_tick (void)
     kernel_ticks++;
 
   /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE)
+  if (++thread_ticks >= 100)
     intr_yield_on_return ();
 }
 
@@ -145,6 +180,58 @@ thread_print_stats (void)
 {
   printf ("Thread: %lld idle ticks, %lld kernel ticks, %lld user ticks\n",
           idle_ticks, kernel_ticks, user_ticks);
+}
+
+tid_t 
+fork_create(const char *name, int priority, thread_func *function, 
+		  void *aux)
+{
+  struct thread *t, *current = thread_current();
+  struct kernel_thread_frame *kf;
+  struct switch_entry_frame *ef;
+  struct switch_threads_frame *sf;
+  tid_t tid;
+  enum intr_level old_level;
+
+  ASSERT (function != NULL);
+
+  /* Allocate thread. */
+  t = palloc_get_page (PAL_ZERO);
+  if (t == NULL)
+    return TID_ERROR;
+
+  /* Initialize thread. */
+  init_thread (t, name, priority);
+  tid = t->tid = allocate_tid ();
+  t->pagedir = pagedir_create();
+
+  /* Prepare thread for first run by initializing its stack.
+     Do this atomically so intermediate values for the 'stack' 
+     member cannot be observed. */
+  old_level = intr_disable ();
+  memcpy(t->pagedir, current->pagedir, PGSIZE);
+
+  /* Stack frame for kernel_thread(). */
+  kf = alloc_frame (t, sizeof *kf);
+  kf->eip = NULL;
+  kf->function = function;
+  kf->aux = aux;
+
+  /* Stack frame for switch_entry(). */
+  ef = alloc_frame (t, sizeof *ef);
+  ef->eip = (void (*) (void)) kernel_thread;
+
+  /* Stack frame for switch_threads(). */
+  sf = alloc_frame (t, sizeof *sf);
+  sf->eip = switch_entry;
+  sf->ebp = 0;
+
+  intr_set_level (old_level);
+
+  /* Add to run queue. */
+  thread_unblock (t);
+
+  return tid;
 }
 
 /* Creates a new kernel thread named NAME with the given initial
@@ -298,6 +385,7 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
+  //print_ready_list();
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();
@@ -444,7 +532,27 @@ running_thread (void)
      always at the beginning of a page and the stack pointer is
      somewhere in the middle, this locates the curent thread. */
   asm ("mov %%esp, %0" : "=g" (esp));
-  return pg_round_down (esp);
+  struct thread *th = pg_round_down (esp);
+  /*if(!strcmp(th->name, "echo")){
+    if(th->forking == true){
+      struct list_elem *e;
+      for (e = list_begin (&ready_list); e != list_end (&ready_list);
+	   e = list_next (e))
+	{
+	  struct thread *t = list_entry (e, struct thread, elem);
+	  if(!strcmp(t->name, "fork"))
+	    return th;
+	}
+      for (e = list_begin (&all_list); e != list_end (&all_list);
+	   e = list_next (e))
+	{
+	  struct thread *t = list_entry (e, struct thread, allelem);
+	  if(!strcmp(t->name, "fork"))
+	    return t;
+	}
+    }
+    }*/
+  return th;
 }
 
 /* Returns true if T appears to point to a valid thread. */
@@ -470,6 +578,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   t->forking = false;
+  t->restore = NULL;
+  t->parent = NULL;
   list_push_back (&all_list, &t->allelem);
 }
 
@@ -557,6 +667,12 @@ static void
 schedule (void) 
 {
   struct thread *cur = running_thread ();
+  /*if (!strcmp(cur->name, "main")){
+    int x = cur->status;
+    cur->status = THREAD_RUNNING;
+    print_ready_list();
+    cur->status = x;
+  }*/
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
 
@@ -567,6 +683,71 @@ schedule (void)
   if (cur != next)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
+}
+
+
+static void
+dummy_run (int a){
+  printf("%d\n", a);
+  thread_exit();
+}
+
+/*void memchange(struct thread *t)
+{
+  uintptr_t *x = t & (0x00000ffc);
+}*/
+
+int
+thread_fork2()
+{
+  struct thread *t, *prev = NULL;
+  tid_t tid;
+  enum intr_level old_level;
+  struct switch_entry_frame *ef;
+  struct switch_threads_frame *sf;
+
+  t = palloc_get_page(PAL_ZERO);
+  if (t == NULL)
+    return TID_ERROR;
+
+  t->pagedir = pagedir_create();
+
+  old_level = intr_disable();
+  struct thread *current = thread_current();
+
+  memcpy(t, current, PGSIZE);
+  memcpy(t->pagedir, current->pagedir, PGSIZE);
+  
+  tid = t -> tid = allocate_tid();
+
+  t->name[0] = 'f';
+  t->name[1] = 'o';
+  t->name[2] = 'r';
+  t->name[3] = 'k';
+  t->name[4] = 0;
+
+  t -> status = THREAD_BLOCKED;
+  t -> parent = current;
+  //t->stack = (((uintptr_t)t & (0x11111000)) | (0x00000111)) & ((uintptr_t)(t->stack) & (0x00000111));
+  //
+  list_push_back (&all_list, &t->allelem);
+
+  /* Stack frame for switch_entry(). */
+  /*ef = alloc_frame (t, sizeof *ef);
+    ef->eip = (void (*) (void)) eipx;*/
+
+  /* Stack frame for switch_threads(). */
+  /*sf = alloc_frame (t, sizeof *sf);
+  sf->eip = switch_entry;
+  sf->ebp = 0;*/
+
+  t -> status = THREAD_READY;
+  list_push_back (&ready_list, &current->elem);
+  current->forking = true;
+  //thread_block();
+  print_ready_list();
+  intr_set_level (old_level);
+  thread_yield();
 }
 
 /* Returns a tid to use for a new thread. */
@@ -582,6 +763,7 @@ allocate_tid (void)
 
   return tid;
 }
+
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
