@@ -119,7 +119,28 @@ fork_process (void *aux)
   }*/
   struct thread *t = thread_current();
   t->stack =  (uint8_t *)((((uint32_t)param->stack_ptr) & (0x00000fff)) | ((uint32_t)t));
-  memcpy(t->stack, param->stack, param->size);
+  //memcpy(t->stack, param->stack, param->size);
+  //struct thread *check;
+  //palloc_get_page(PAL_ZERO);
+  //memcpy(check, t, PGSIZE);
+  //free(check);
+  //uint8_t *dst = t->stack;
+  //uint8_t *src = param->stack;
+
+  //size_t size = param->size;
+
+  //ASSERT (dst != NULL || size == 0);
+  //ASSERT (src != NULL || size == 0);
+
+  while (param->size-- > 0)
+    *((t->stack)++) = *((param->stack)++);
+  printf("checking: %p\n", t->stack);
+  t->stack =  (uint8_t *)((((uint32_t)param->stack_ptr) & (0x00000fff)) | ((uint32_t)t));
+  printf("checking: %p %c\n", t->stack, *t->stack);
+  uint32_t *esp;
+  asm ("mov %%esp, %0" : "=g" (esp));
+  printf("huahhahaha########******* %p\n", esp);
+  param->f->esp += 4;
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (param->f) : "memory");
   NOT_REACHED ();
 }

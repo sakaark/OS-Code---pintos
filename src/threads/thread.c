@@ -208,13 +208,14 @@ fork_create(const char *name, int priority, thread_func *function,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
   t->pagedir = pagedir_create();
-
+  struct aux_fork *param = (struct aux_fork *)aux;
+  param->file = malloc(16*sizeof(char));
   strlcpy(((struct aux_fork *)aux)->file, current->name, strlen(current->name)+1);
   unsigned int i = pg_round_up(current->stack);
   unsigned int j = current->stack;
-  struct aux_fork *param = (struct aux_fork *)aux;
   ((struct aux_fork *)aux)->stack_ptr = current->stack;
   ((struct aux_fork *)aux)->size = (size_t)((unsigned int)(i-j));
+  //*(current->stack) = '*';
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 

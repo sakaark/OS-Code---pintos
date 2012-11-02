@@ -346,7 +346,11 @@ intr_handler (struct intr_frame *frame)
 {
   bool external;
   intr_handler_func *handler;
-
+  if (frame->vec_no == 0x30){
+    uint32_t *esp;
+    asm ("mov %%esp, %0" : "=g" (esp));
+    printf("******* %p\n", esp);
+  }
   /* External interrupts are special.
      We only handle one at a time (so interrupts must be off)
      and they need to be acknowledged on the PIC (see below).
@@ -386,6 +390,11 @@ intr_handler (struct intr_frame *frame)
       if (yield_on_return) 
         thread_yield (); 
     }
+  if (frame->vec_no == 0x30){
+    uint32_t *esp;
+    asm ("mov %%esp, %0" : "=g" (esp));
+    printf("******* %p\n\n", esp);
+  }
 }
 
 /* Handles an unexpected interrupt with interrupt frame F.  An

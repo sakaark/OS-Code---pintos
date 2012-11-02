@@ -50,6 +50,9 @@ static int sys_write (int fd, const void *buffer, unsigned size){
 }
 
 static int sys_fork (void *eipf){
+  uint32_t *esp;
+  asm ("mov %%esp, %0" : "=g" (esp));
+  printf("hehe########******* %p\n", esp);
   struct thread *t = thread_current();
   tid_t pid=0;
   char *file_name = t->name;
