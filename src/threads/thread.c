@@ -74,6 +74,7 @@ int thread_fork2();
 static tid_t allocate_tid (void);
 void print_ready_list(void);
 tid_t fork_create(const char *name, int priority, thread_func *function, void *aux);
+
 void
 print_all_list()
 {
@@ -192,11 +193,14 @@ fork_create(const char *name, int priority, thread_func *function,
   struct switch_threads_frame *sf;
   tid_t tid;
   enum intr_level old_level;
+  //printf("stack2 = %u, value2 = %c\n", current->stack, *(current->stack));
+  //printf("page=%u\n", pg_round_up(current->stack));
 
   ASSERT (function != NULL);
 
   /* Allocate thread. */
   t = palloc_get_page (PAL_ZERO);
+
   if (t == NULL)
     return TID_ERROR;
 
@@ -205,11 +209,20 @@ fork_create(const char *name, int priority, thread_func *function,
   tid = t->tid = allocate_tid ();
   t->pagedir = pagedir_create();
 
+  strlcpy(((struct aux_fork *)aux)->file, current->name, strlen(current->name)+1);
+  unsigned int i = pg_round_up(current->stack);
+  unsigned int j = current->stack;
+  struct aux_fork *param = (struct aux_fork *)aux;
+  ((struct aux_fork *)aux)->stack_ptr = current->stack;
+  ((struct aux_fork *)aux)->size = (size_t)((unsigned int)(i-j));
+
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
      member cannot be observed. */
   old_level = intr_disable ();
   memcpy(t->pagedir, current->pagedir, PGSIZE);
+  ((struct aux_fork *)aux)->stack = malloc((param->size + 1)*sizeof(char));
+  memcpy(((struct aux_fork *)aux)->stack, current->stack, param->size);
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);

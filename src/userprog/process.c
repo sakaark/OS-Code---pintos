@@ -47,10 +47,10 @@ process_execute (const char *file_name)
 }
 
 tid_t
-fork_execute (void *eipf) 
+fork_execute (void *a) 
 {
   tid_t tid=0;
-  tid = fork_create ("forked", PRI_DEFAULT, fork_process, eipf);
+  tid = fork_create ("forked", PRI_DEFAULT, fork_process, a);
   return tid;
 }
 
@@ -89,19 +89,19 @@ start_process (void *file_name_)
 }
 
 static void 
-fork_process (void *eipf)
+fork_process (void *aux)
 {
   //char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+  struct aux_fork *param = aux;
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load ("echo", &if_.eip, &if_.esp);
-  if_.eip = (void (*)(void))eipf;
+  success = load (param->file, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
   //palloc_free_page (file_name);
@@ -117,7 +117,10 @@ fork_process (void *eipf)
   /*if (thread_current()->forking == true){
     asm volatile ("addl $4, %esp; jmp intr_exit");
   }*/
-  asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" ((struct intr_frame *)eipf) : "memory");
+  struct thread *t = thread_current();
+  t->stack =  (uint8_t *)((((uint32_t)param->stack_ptr) & (0x00000fff)) | ((uint32_t)t));
+  memcpy(t->stack, param->stack, param->size);
+  asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (param->f) : "memory");
   NOT_REACHED ();
 }
 
