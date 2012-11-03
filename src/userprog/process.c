@@ -117,7 +117,7 @@ fork_process (void *aux)
   /*if (thread_current()->forking == true){
     asm volatile ("addl $4, %esp; jmp intr_exit");
   }*/
-  struct thread *t = thread_current();
+  
   //memcpy(t->stack, param->stack, param->size);
   //struct thread *check;
   //palloc_get_page(PAL_ZERO);
@@ -130,6 +130,7 @@ fork_process (void *aux)
 
   //ASSERT (dst != NULL || size == 0);
   //ASSERT (src != NULL || size == 0);
+  /*struct thread *t = thread_current();
   enum intr_level old_level;
 
   old_level = intr_disable();
@@ -142,9 +143,10 @@ fork_process (void *aux)
   print_all_list();
   intr_set_level (old_level);
 
-  printf("checking: %p %c\n", t->stack, *t->stack);
+  printf("checking: %p %c\n", t->stack, *t->stack);*/
   //param->f->esp += 4;
-  asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (param->f) : "memory");
+
+  asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
 }
 
@@ -185,7 +187,7 @@ process_exit (void)
          that's been freed (and cleared). */
       cur->pagedir = NULL;
       pagedir_activate (NULL);
-      //pagedir_destroy (pd);
+      pagedir_destroy (pd);
     }
 }
 

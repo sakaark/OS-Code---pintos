@@ -98,9 +98,7 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
-    bool forking;
-    struct thread *restore;
-    struct thread *parent;
+    bool forked;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };

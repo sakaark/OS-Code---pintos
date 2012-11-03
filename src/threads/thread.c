@@ -207,23 +207,11 @@ fork_create(const char *name, int priority, thread_func *function,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-  t->pagedir = pagedir_create();
   struct aux_fork *param = (struct aux_fork *)aux;
   param->file = malloc(16*sizeof(char));
   strlcpy(((struct aux_fork *)aux)->file, current->name, strlen(current->name)+1);
-  unsigned int i = pg_round_up(current->stack);
-  unsigned int j = current->stack;
-  ((struct aux_fork *)aux)->stack_ptr = current->stack;
-  ((struct aux_fork *)aux)->size = (size_t)((unsigned int)(i-j));
-  //*(current->stack) = '*';
-
-  /* Prepare thread for first run by initializing its stack.
-     Do this atomically so intermediate values for the 'stack' 
-     member cannot be observed. */
   old_level = intr_disable ();
-  memcpy(t->pagedir, current->pagedir, PGSIZE);
-  ((struct aux_fork *)aux)->stack = malloc((param->size + 1)*sizeof(char));
-  memcpy(((struct aux_fork *)aux)->stack, current->stack, param->size);
+  t->forked=true;
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -591,9 +579,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  t->forking = false;
-  t->restore = NULL;
-  t->parent = NULL;
+  t->forked = false;
   list_push_back (&all_list, &t->allelem);
 }
 
@@ -697,71 +683,6 @@ schedule (void)
   if (cur != next)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
-}
-
-
-static void
-dummy_run (int a){
-  printf("%d\n", a);
-  thread_exit();
-}
-
-/*void memchange(struct thread *t)
-{
-  uintptr_t *x = t & (0x00000ffc);
-}*/
-
-int
-thread_fork2()
-{
-  struct thread *t, *prev = NULL;
-  tid_t tid;
-  enum intr_level old_level;
-  struct switch_entry_frame *ef;
-  struct switch_threads_frame *sf;
-
-  t = palloc_get_page(PAL_ZERO);
-  if (t == NULL)
-    return TID_ERROR;
-
-  t->pagedir = pagedir_create();
-
-  old_level = intr_disable();
-  struct thread *current = thread_current();
-
-  memcpy(t, current, PGSIZE);
-  memcpy(t->pagedir, current->pagedir, PGSIZE);
-  
-  tid = t -> tid = allocate_tid();
-
-  t->name[0] = 'f';
-  t->name[1] = 'o';
-  t->name[2] = 'r';
-  t->name[3] = 'k';
-  t->name[4] = 0;
-
-  t -> status = THREAD_BLOCKED;
-  t -> parent = current;
-  //t->stack = (((uintptr_t)t & (0x11111000)) | (0x00000111)) & ((uintptr_t)(t->stack) & (0x00000111));
-  //
-  list_push_back (&all_list, &t->allelem);
-
-  /* Stack frame for switch_entry(). */
-  /*ef = alloc_frame (t, sizeof *ef);
-    ef->eip = (void (*) (void)) eipx;*/
-
-  /* Stack frame for switch_threads(). */
-  /*sf = alloc_frame (t, sizeof *sf);
-  sf->eip = switch_entry;
-  sf->ebp = 0;*/
-
-  t -> status = THREAD_READY;
-  list_push_back (&ready_list, &current->elem);
-  current->forking = true;
-  //thread_block();
-  print_ready_list();
-  intr_set_level (old_level);
-  thread_yield();
 }
 
 /* Returns a tid to use for a new thread. */
