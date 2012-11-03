@@ -9,6 +9,7 @@
 static void syscall_handler (struct intr_frame *);
 static int sys_write (int fd, const void *buffer, unsigned size);
 static int sys_fork (void *eipf);
+static void sys_exec (char *file);
 
 void
 syscall_init (void) 
@@ -25,8 +26,9 @@ syscall_handler (struct intr_frame *f)
 
   int sys_call = *((int *)f -> esp);
   
-  if (current->forked == true && sys_call != SYS_FORK)
+  if (current->forks != current->forks_done && sys_call != SYS_FORK)
     return;
+
 
   switch (sys_call){
   case SYS_WRITE:
@@ -35,14 +37,23 @@ syscall_handler (struct intr_frame *f)
   case SYS_EXIT:
     thread_exit() ;
   case SYS_FORK:
-    if (current->forked == true){
-      f->eax = 0;
-      current->forked = false;
+    if (current->forks == current->forks_done){
+      current->forks += 1;
+      current->forks_done += 1;
+      f->eax = sys_fork(f);
     }
-    else {
-      f -> eax = sys_fork(f);
+    else{
+      current->forks_done += 1;
+      f->eax=0;
+      if (current->forks_done == current->forks)
+	f->eax = 0;
+      else
+	f->eax = 999;
     }
     break;
+  case SYS_EXEC:
+    //printf("exec pid=%d", current->tid);
+    sys_exec((char *)arguments[0]);
   default:
     break;
   }
@@ -69,4 +80,9 @@ static int sys_fork (void *eipf){
     pid = fork_execute(a);
   enum intr_level old_level;
   return pid;
+}
+
+static void sys_exec (char *file){
+  process_execute(file);
+  thread_exit();
 }

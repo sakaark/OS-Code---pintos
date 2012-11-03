@@ -5,22 +5,19 @@
 int
 main (int argc, char **argv)
 {
-  int i;
+  int i, pid;
 
   printf("Hello Hard Disk!! ");
   printf("I love USERPROG!!\n");
 
+  int t = 4;
+  //fork();
+  pid = fork();
+
   for (i = 0; i < argc; i++)
     printf ("%s ", argv[i]);
 
-  int t = 4;
-  //fork();
-  i = fork();
-
-  printf("Phew! tough job! pid=%d\n", i);
-  while(1);
-
-
+  printf("\nPhew! tough job! pid=%d\n", pid);
 
   return EXIT_SUCCESS;
 }

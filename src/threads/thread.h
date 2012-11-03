@@ -97,8 +97,8 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 #endif
-
-    bool forked;
+    int forks;
+    int forks_done;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };

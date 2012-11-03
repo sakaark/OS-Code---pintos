@@ -208,10 +208,11 @@ fork_create(const char *name, int priority, thread_func *function,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
   struct aux_fork *param = (struct aux_fork *)aux;
-  param->file = malloc(16*sizeof(char));
+  param->file = palloc_get_page(PAL_ZERO);
   strlcpy(((struct aux_fork *)aux)->file, current->name, strlen(current->name)+1);
   old_level = intr_disable ();
-  t->forked=true;
+  t->forks = current->forks;
+  t->forks_done = 0;
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -232,7 +233,6 @@ fork_create(const char *name, int priority, thread_func *function,
 
   /* Add to run queue. */
   thread_unblock (t);
-
   return tid;
 }
 
@@ -579,7 +579,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  t->forked = false;
+  t->forks = 0;
+  t->forks_done = 0;
   list_push_back (&all_list, &t->allelem);
 }
 

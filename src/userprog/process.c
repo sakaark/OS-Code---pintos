@@ -50,7 +50,7 @@ tid_t
 fork_execute (void *a) 
 {
   tid_t tid=0;
-  tid = fork_create ("forked", PRI_DEFAULT, fork_process, a);
+  tid = fork_create (thread_current()->name, PRI_DEFAULT, fork_process, a);
   return tid;
 }
 
@@ -63,17 +63,79 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
+  /* My Implementation */
+  char *token, *save_ptr;
+  void *start;
+  int argc, i;
+  int *argv_off; /* Maximum of 2 arguments */
+  size_t file_name_len;
+  struct thread *t;
+  /* == My Implementation */
+
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+  
+  /* My Implementation */
+  t = thread_current ();
+  argc = 0;
+  argv_off = malloc (32 * sizeof (int));
+  if (!argv_off)
+    goto exit;
+  file_name_len = strlen (file_name);
+  argv_off[0] = 0;
+  for (
+       token = strtok_r (file_name, " ", &save_ptr);
+       token != NULL;
+       token = strtok_r (NULL, " ", &save_ptr)
+       )
+        {
+          while (*(save_ptr) == ' ')
+            ++save_ptr;
+          argv_off[++argc] = save_ptr - file_name;
+        }
+  /* == My Implementation */
+  
   success = load (file_name, &if_.eip, &if_.esp);
 
+  /* My Implementation */
+  /* Setting up stack */
+  if (success)
+    {
+      if_.esp -= file_name_len + 1;
+      start = if_.esp;
+      memcpy (if_.esp, file_name, file_name_len + 1);
+      if_.esp -= 4 - (file_name_len + 1) % 4; /* alignment */
+      if_.esp -= 4;
+      *(int *)(if_.esp) = 0; /* argv[argc] == 0 */
+      /* Now pushing argv[x], and this is where the fun begins */
+      for (i = argc - 1; i >= 0; --i)
+        {
+          if_.esp -= 4;
+          *(void **)(if_.esp) = start + argv_off[i]; /* argv[x] */
+        }
+
+      if_.esp -= 4;
+      *(char **)(if_.esp) = (if_.esp + 4); /* argv */
+      if_.esp -= 4;
+      *(int *)(if_.esp) = argc;
+      if_.esp -= 4;
+      *(int *)(if_.esp) = 0; /* Fake return address */
+    }
+  else
+    {
+      free (argv_off);
+exit:
+      thread_exit ();
+    }
+  
+  free (argv_off);
+  
   /* If load failed, quit. */
+  //t->loadname = file_name;
   palloc_free_page (file_name);
-  if (!success) 
-    thread_exit ();
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -81,9 +143,7 @@ start_process (void *file_name_)
      arguments on the stack in the form of a `struct intr_frame',
      we just point the stack pointer (%esp) to our stack frame
      and jump to it. */
-  /*if (thread_current()->forking == true){
-    asm volatile ("addl $4, %esp; jmp intr_exit");
-  }*/
+  //pagedir_active();
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
 }
@@ -91,22 +151,83 @@ start_process (void *file_name_)
 static void 
 fork_process (void *aux)
 {
-  //char *file_name = file_name_;
+  char *file_name = ((struct aux_fork *)aux)->file;
   struct intr_frame if_;
   bool success;
-  struct aux_fork *param = aux;
+
+  /* My Implementation */
+  char *token, *save_ptr;
+  void *start;
+  int argc, i;
+  int *argv_off; /* Maximum of 2 arguments */
+  size_t file_name_len;
+  struct thread *t;
+  /* == My Implementation */
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (param->file, &if_.eip, &if_.esp);
+  
+  /* My Implementation */
+  t = thread_current ();
+  argc = 0;
+  argv_off = malloc (32 * sizeof (int));
+  if (!argv_off)
+    goto exit;
+  file_name_len = strlen (file_name);
+  argv_off[0] = 0;
+  for (
+       token = strtok_r (file_name, " ", &save_ptr);
+       token != NULL;
+       token = strtok_r (NULL, " ", &save_ptr)
+       )
+        {
+          while (*(save_ptr) == ' ')
+            ++save_ptr;
+          argv_off[++argc] = save_ptr - file_name;
+        }
+  /* == My Implementation */
+  
+  success = load (file_name, &if_.eip, &if_.esp);
 
+  /* My Implementation */
+  /* Setting up stack */
+  if (success)
+    {
+      if_.esp -= file_name_len + 1;
+      start = if_.esp;
+      memcpy (if_.esp, file_name, file_name_len + 1);
+      if_.esp -= 4 - (file_name_len + 1) % 4; /* alignment */
+      if_.esp -= 4;
+      *(int *)(if_.esp) = 0; /* argv[argc] == 0 */
+      /* Now pushing argv[x], and this is where the fun begins */
+      for (i = argc - 1; i >= 0; --i)
+        {
+          if_.esp -= 4;
+          *(void **)(if_.esp) = start + argv_off[i]; /* argv[x] */
+        }
+
+      if_.esp -= 4;
+      *(char **)(if_.esp) = (if_.esp + 4); /* argv */
+      if_.esp -= 4;
+      *(int *)(if_.esp) = argc;
+      if_.esp -= 4;
+      *(int *)(if_.esp) = 0; /* Fake return address */
+    }
+  else
+    {
+      free (argv_off);
+exit:
+      thread_exit ();
+    }
+  
+  free (argv_off);
+  
   /* If load failed, quit. */
-  //palloc_free_page (file_name);
-  if (!success) 
-    thread_exit ();
+  //t->loadname = file_name;
+  palloc_free_page (file_name);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -114,38 +235,6 @@ fork_process (void *aux)
      arguments on the stack in the form of a `struct intr_frame',
      we just point the stack pointer (%esp) to our stack frame
      and jump to it. */
-  /*if (thread_current()->forking == true){
-    asm volatile ("addl $4, %esp; jmp intr_exit");
-  }*/
-  
-  //memcpy(t->stack, param->stack, param->size);
-  //struct thread *check;
-  //palloc_get_page(PAL_ZERO);
-  //memcpy(check, t, PGSIZE);
-  //free(check);
-  //uint8_t *dst = t->stack;
-  //uint8_t *src = param->stack;
-
-  //size_t size = param->size;
-
-  //ASSERT (dst != NULL || size == 0);
-  //ASSERT (src != NULL || size == 0);
-  /*struct thread *t = thread_current();
-  enum intr_level old_level;
-
-  old_level = intr_disable();
-  t->stack =  (uint8_t *)((((uint32_t)param->stack_ptr) & (0x00000fff)) | ((uint32_t)t));
-  while (param->size-- > 0)
-    *((t->stack)++) = *((param->stack)++);
-  printf("checking: %p\n", t->stack);
-  t->stack =  (uint8_t *)((((uint32_t)param->stack_ptr) & (0x00000fff)) | ((uint32_t)t));
-  print_ready_list();
-  print_all_list();
-  intr_set_level (old_level);
-
-  printf("checking: %p %c\n", t->stack, *t->stack);*/
-  //param->f->esp += 4;
-
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
 }
@@ -512,7 +601,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
       else
         palloc_free_page (kpage);
     }
