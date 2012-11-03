@@ -581,6 +581,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   t->forks = 0;
   t->forks_done = 0;
+#ifdef USERPROG
+  list_init (&(t->sup_list));
+#endif
   list_push_back (&all_list, &t->allelem);
 }
 
