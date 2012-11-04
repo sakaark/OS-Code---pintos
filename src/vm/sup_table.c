@@ -3,6 +3,7 @@
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 #include <round.h>
+#include <bitmap.h>
 
 struct pool
   {
@@ -18,9 +19,51 @@ static void init_pool (struct pool *, void *base, size_t page_cnt,
                        const char *name);
 static bool page_from_pool (const struct pool *, void *page);
 
+uint8_t *swap_store;
+
 void swapspace_init(){
   swap_store = palloc_get_multiple(0, 64);
   init_pool (&swap_pool, swap_store, 64, "swap pool");
+}
+
+uint8_t *swap_get_page(){
+  struct pool *pool = &swap_pool;
+  void *pages;
+  size_t page_idx;
+  int page_cnt = 1;
+
+  lock_acquire (&pool->lock);
+  page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);
+  lock_release (&pool->lock);
+
+  if (page_idx != BITMAP_ERROR)
+    pages = pool->base + PGSIZE * page_idx;
+  else
+    pages = NULL;
+
+  if (pages == NULL) 
+      PANIC ("palloc_get: out of pages");
+
+  return pages;
+}
+
+void swap_free_page(uint8_t *pages){
+  struct pool *pool = &swap_pool;
+  size_t page_idx;
+  int page_cnt = 1;
+
+  ASSERT (pg_ofs (pages) == 0);
+  if (pages == NULL || page_cnt == 0)
+    return;
+
+  page_idx = pg_no (pages) - pg_no (pool->base);
+
+#ifndef NDEBUG
+  memset (pages, 0xcc, PGSIZE * page_cnt);
+#endif
+
+  ASSERT (bitmap_all (pool->used_map, page_idx, page_cnt));
+  bitmap_set_multiple (pool->used_map, page_idx, page_cnt, false);
 }
 
 /* Initializes pool P as starting at START and ending at END,
@@ -55,4 +98,3 @@ page_from_pool (const struct pool *pool, void *page)
 
   return page_no >= start_page && page_no < end_page;
 }
-

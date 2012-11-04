@@ -17,10 +17,13 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "vm/sup_table.h"
+#include "vm/frametable.h"
 
 static thread_func start_process NO_RETURN;
 static thread_func fork_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static void copy_to_swap();
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -144,6 +147,8 @@ exit:
      we just point the stack pointer (%esp) to our stack frame
      and jump to it. */
   //pagedir_active();
+  //copy_to_swap();
+
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
 }
@@ -235,6 +240,7 @@ exit:
      arguments on the stack in the form of a `struct intr_frame',
      we just point the stack pointer (%esp) to our stack frame
      and jump to it. */
+  //copy_to_swap();
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
 }
@@ -264,6 +270,7 @@ process_exit (void)
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
+  struct list_elem *e;
   pd = cur->pagedir;
   if (pd != NULL) 
     {
@@ -274,6 +281,24 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
+      lock_acquire(&frame_lock);
+      for (e = list_begin (&frame_list); e != list_end (&frame_list); ){
+	struct frame_entry *f = list_entry (e, struct frame_entry, elem);
+	if (f->t == cur){
+	  e = list_remove (e);
+	  free(f);
+	}
+	else
+	  e = list_next (e);
+      }
+      lock_release(&frame_lock);
+	
+      for (e = list_begin (&cur->sup_list); e != list_end (&cur->sup_list); ){
+	struct sup_entry *f = list_entry (e, struct sup_entry, elem);
+	swap_free_page(f->kpool_no);
+	e = list_remove(e);
+	free(f);
+      }
       cur->pagedir = NULL;
       pagedir_activate (NULL);
       pagedir_destroy (pd);
@@ -362,6 +387,9 @@ struct Elf32_Phdr
 static bool setup_stack (void **esp);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
+                          uint32_t read_bytes, uint32_t zero_bytes,
+                          bool writable);
+static bool load_segment2 (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
 
@@ -455,7 +483,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-              if (!load_segment (file, file_page, (void *) mem_page,
+              if (!load_segment2 (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
                 goto done;
             }
@@ -588,6 +616,62 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
+static bool
+load_segment2 (struct file *file, off_t ofs, uint8_t *upage,
+              uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
+{
+  ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
+  ASSERT (pg_ofs (upage) == 0);
+  ASSERT (ofs % PGSIZE == 0);
+
+  file_seek (file, ofs);
+  while (read_bytes > 0 || zero_bytes > 0) 
+    {
+      /* Calculate how to fill this page.
+         We will read PAGE_READ_BYTES bytes from FILE
+         and zero the final PAGE_ZERO_BYTES bytes. */
+      size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+      size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+      /* Get a page of memory. */
+      uint8_t *kpage = swap_get_page ();
+      if (kpage == NULL)
+        return false;
+
+      /* Load this page. */
+      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
+        {
+          palloc_free_page (kpage);
+          return false; 
+        }
+      memset (kpage + page_read_bytes, 0, page_zero_bytes);
+
+      /* Add the page to the process's address space. */
+      /*if (!install_page (upage, kpage, writable)) 
+        {
+          palloc_free_page (kpage);
+          return false; 
+	  }*/
+      struct sup_entry *entry;
+      entry = (struct sup_entry *)malloc(sizeof(struct sup_entry));
+
+      entry->page_no = upage;
+      entry->kpool_no = kpage;
+      entry->writable = writable;
+      entry->stack_page = false;
+
+      list_push_back(&((thread_current())->sup_list), &entry->elem);
+
+
+      /* Advance. */
+      read_bytes -= page_read_bytes;
+      zero_bytes -= page_zero_bytes;
+      upage += PGSIZE;
+    }
+  return true;
+}
+
+
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
@@ -597,6 +681,17 @@ setup_stack (void **esp)
   bool success = false;
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+
+  struct sup_entry *entry;
+  entry = (struct sup_entry *)malloc(sizeof(struct sup_entry));
+
+  entry->page_no = ((uint8_t *) PHYS_BASE) - PGSIZE;
+  entry->kpool_no = NULL;
+  entry->writable = true;
+  entry->stack_page = true;
+
+  list_push_back(&((thread_current())->sup_list), &entry->elem);
+
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
@@ -626,4 +721,34 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+static void
+copy_to_swap()
+{
+  struct thread *t = thread_current();
+  uint8_t *upage = 0x00000000;
+  uint8_t *offset = 0x00001000;
+  int i = 0;
+  printf("entering\n");
+  while(is_user_vaddr(upage)){
+    uint8_t *vpoolpage = pagedir_get_page(t->pagedir, upage);
+
+    if (vpoolpage != NULL){
+      printf("haha\n");
+      struct sup_entry *entry;
+      entry = (struct sup_entry *)malloc(sizeof(struct sup_entry));
+
+      uint8_t *swappage = swap_get_page();
+      memcpy(swappage, vpoolpage, PGSIZE);
+
+      entry->page_no = upage;
+      entry->kpool_no = swappage;
+
+      list_push_back(&t->sup_list, &entry->elem);
+    }
+    upage = (uint8_t *)((uint32_t)upage + (uint32_t)offset);
+    i++;
+  }
+  printf("exited %d\n", i);
 }

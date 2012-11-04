@@ -4,11 +4,14 @@
 #include "lib/kernel/list.h"
 
 struct sup_entry{
-  uint32_t page_no;
-  uint32_t kpool_no;
+  uint8_t *page_no;
+  uint8_t *kpool_no;
+  bool writable;
+  bool stack_page;
   struct list_elem elem;
 };
 
-uint32_t *swap_store;
 void swapsapce_init();
+uint8_t *swap_get_page();
+void swap_free_page(uint8_t *pages);
 #endif

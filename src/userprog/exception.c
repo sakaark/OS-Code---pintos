@@ -4,6 +4,11 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "vm/sup_table.h"
+#include "vm/frametable.h"
+#include "threads/synch.h"
+#include "threads/palloc.h"
+#include "threads/vaddr.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -152,11 +157,42 @@ page_fault (struct intr_frame *f)
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
   
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
+  /*printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
-          user ? "user" : "kernel");
-  kill (f);
+          user ? "user" : "kernel");*/
+
+  struct list_elem *e;
+  struct thread *t = thread_current();
+  bool page_found = false;
+  for (e = list_begin (&t->sup_list); e != list_end (&t->sup_list); e = list_next (e)){
+    struct sup_entry *f = list_entry (e, struct sup_entry, elem);
+    if ((uint8_t *)(((uint32_t)fault_addr) & 0xfffff000) == (uint8_t *)f->page_no){
+      uint8_t *upool = palloc_get_page(PAL_USER);
+      memcpy(upool, f->kpool_no, PGSIZE);
+      pagedir_set_page(t->pagedir, f->page_no, upool, f->writable);
+      page_found = true;
+      
+      struct frame_entry *entry;
+      entry = (struct frame_entry *)malloc(sizeof(struct frame_entry));
+      entry->t = thread_current();
+      entry->upage = upool;
+      entry->kpage = f->kpool_no;
+
+      lock_acquire(&frame_lock);
+      list_push_back(&frame_list, &entry->elem);
+      lock_release(&frame_lock);
+    }
+  }
+  if (!page_found){
+    printf ("Page fault at %p: %s error %s page in %s context.\n",
+	    fault_addr,
+	    not_present ? "not present" : "rights violation",
+	    write ? "writing" : "reading",
+	    user ? "user" : "kernel");
+    kill (f);
+  }
+  //kill (f);
 }
 
