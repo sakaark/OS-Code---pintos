@@ -8,6 +8,7 @@ struct sup_entry{
   uint8_t *kpool_no;
   bool writable;
   bool stack_page;
+  bool shared_mem;
   struct list_elem elem;
 };
 

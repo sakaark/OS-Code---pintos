@@ -1,5 +1,6 @@
 #ifndef __LIB_USER_SYSCALL_H
 #define __LIB_USER_SYSCALL_H
+#include <stdint.h>
 
 #include <stdbool.h>
 #include <debug.h>
@@ -24,6 +25,8 @@ void halt (void) NO_RETURN;
 void exit (int status) NO_RETURN;
 pid_t fork ();
 pid_t exec (const char *file);
+uint32_t shared_memory_open (const int size);
+void shared_memory_close ();
 int wait (pid_t);
 bool create (const char *file, unsigned initial_size);
 bool remove (const char *file);

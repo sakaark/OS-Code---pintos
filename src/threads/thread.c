@@ -583,6 +583,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->forks_done = 0;
 #ifdef USERPROG
   list_init (&(t->sup_list));
+  t->shared_mem = false;
 #endif
   list_push_back (&all_list, &t->allelem);
 }

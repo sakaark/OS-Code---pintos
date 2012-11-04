@@ -25,8 +25,20 @@ main (int argc, char **argv)
       exec("compute_f 11");
     else{
       pid = fork();
+      /*char *shm = shared_memory_open(32);
+      printf("shared_memory = %p\n", shm);
+      strlcpy(shm, "hi", 3);*/
+
       if (pid == 0)
 	exec("compute_f 12");
+      else{
+	char *shm = shared_memory_open(32);
+	printf("shared_memory = %p\n", shm);
+	strlcpy(shm, "hi", 3);
+	printf("putter = %s\n",shm);
+	
+	shared_memory_close();
+      }
     }
   }
   

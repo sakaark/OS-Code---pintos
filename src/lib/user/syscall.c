@@ -87,6 +87,18 @@ exec (const char *file)
   return (pid_t) syscall1 (SYS_EXEC, file);
 }
 
+uint32_t
+shared_memory_open (const int size)
+{
+  return (uint32_t) syscall1 (SYS_SHM_OPEN, size);
+}
+
+void
+shared_memory_close ()
+{
+  syscall0 (SYS_SHM_CLOSE);
+}
+
 int
 wait (pid_t pid)
 {

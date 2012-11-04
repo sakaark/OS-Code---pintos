@@ -295,9 +295,14 @@ process_exit (void)
 	
       for (e = list_begin (&cur->sup_list); e != list_end (&cur->sup_list); ){
 	struct sup_entry *f = list_entry (e, struct sup_entry, elem);
-	swap_free_page(f->kpool_no);
-	e = list_remove(e);
-	free(f);
+	if (f->stack_page != true && f->shared_mem != true){
+	  swap_free_page(f->kpool_no);
+	  e = list_remove(e);
+	}
+	else{
+	  e = list_next (e);
+	}
+	free(f);	  
       }
       cur->pagedir = NULL;
       pagedir_activate (NULL);
@@ -659,6 +664,7 @@ load_segment2 (struct file *file, off_t ofs, uint8_t *upage,
       entry->kpool_no = kpage;
       entry->writable = writable;
       entry->stack_page = false;
+      entry->shared_mem = false;
 
       list_push_back(&((thread_current())->sup_list), &entry->elem);
 
@@ -686,9 +692,10 @@ setup_stack (void **esp)
   entry = (struct sup_entry *)malloc(sizeof(struct sup_entry));
 
   entry->page_no = ((uint8_t *) PHYS_BASE) - PGSIZE;
-  entry->kpool_no = NULL;
+  entry->kpool_no = kpage;
   entry->writable = true;
   entry->stack_page = true;
+  entry->shared_mem = false;
 
   list_push_back(&((thread_current())->sup_list), &entry->elem);
 

@@ -5,6 +5,7 @@
 #include "threads/thread.h"
 #include "threads/synch.h"
 #include "userprog/process.h"
+#include "vm/shared_memory.h"
 
 static void syscall_handler (struct intr_frame *);
 static int sys_write (int fd, const void *buffer, unsigned size);
@@ -29,12 +30,13 @@ syscall_handler (struct intr_frame *f)
   if (current->forks != current->forks_done && sys_call != SYS_FORK)
     return;
 
-
   switch (sys_call){
   case SYS_WRITE:
     f -> eax = sys_write(arguments[0], (char *)arguments[1], arguments[2]);
     break;
   case SYS_EXIT:
+    if (current->shared_mem == true)
+      shared_memory_close_sys();
     thread_exit() ;
   case SYS_FORK:
     if (current->forks == current->forks_done){
@@ -54,6 +56,13 @@ syscall_handler (struct intr_frame *f)
   case SYS_EXEC:
     //printf("exec pid=%d", current->tid);
     sys_exec((char *)arguments[0]);
+    break;
+  case SYS_SHM_OPEN:
+    f->eax = shared_memory_open_sys(arguments[0]);
+    break;
+  case SYS_SHM_CLOSE:
+    shared_memory_close_sys();
+    break;
   default:
     break;
   }

@@ -97,6 +97,7 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
     struct list sup_list;
+    bool shared_mem;
 #endif
     int forks;
     int forks_done;

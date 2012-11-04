@@ -9,6 +9,8 @@ enum
     SYS_EXIT,                   /* Terminate this process. */
     SYS_FORK,
     SYS_EXEC,                   /* Start another process. */
+    SYS_SHM_OPEN,
+    SYS_SHM_CLOSE,
     SYS_WAIT,                   /* Wait for a child process to die. */
     SYS_CREATE,                 /* Create a file. */
     SYS_REMOVE,                 /* Delete a file. */
