@@ -17,7 +17,6 @@ main (int argc, char **argv)
 
   for(i=0; i<=num; i++){
     int pid = fork();
-    //printf("pid=%d\n", pid);
     if (pid != 0){ 
       char a[10];
       snprintf(a, 10, "%d", i);

@@ -6,8 +6,8 @@ int
 main (int argc, char **argv)
 {
   char *shm = shared_memory_open(40);
-  printf("shared = %s\n", shm);
+  printf("f(%s)=%s%s shm=%p\n", argv[1],argv[1],argv[1], shm);
+  printf("shared = %c%c%c\n", shm[0],shm[1],shm[2]);
   shared_memory_close();
-  printf("f(%s)=%s%s\n", argv[1],argv[1],argv[1]);
   return EXIT_SUCCESS;
 }

@@ -4,6 +4,7 @@
 #include <debug.h>
 #include "lib/kernel/list.h"
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -98,9 +99,8 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
     struct list sup_list;
     bool shared_mem;
+    struct semaphore fork_sema;
 #endif
-    int forks;
-    int forks_done;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
@@ -129,8 +129,6 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
-int thread_fork();
-int thread_fork2();
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);

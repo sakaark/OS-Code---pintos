@@ -27,9 +27,6 @@ syscall_handler (struct intr_frame *f)
 
   int sys_call = *((int *)f -> esp);
   
-  if (current->forks != current->forks_done && sys_call != SYS_FORK)
-    return;
-
   switch (sys_call){
   case SYS_WRITE:
     f -> eax = sys_write(arguments[0], (char *)arguments[1], arguments[2]);
@@ -39,19 +36,7 @@ syscall_handler (struct intr_frame *f)
       shared_memory_close_sys();
     thread_exit() ;
   case SYS_FORK:
-    if (current->forks == current->forks_done){
-      current->forks += 1;
-      current->forks_done += 1;
-      f->eax = sys_fork(f);
-    }
-    else{
-      current->forks_done += 1;
-      f->eax=0;
-      if (current->forks_done == current->forks)
-	f->eax = 0;
-      else
-	f->eax = 999;
-    }
+    f->eax = sys_fork(f);
     break;
   case SYS_EXEC:
     //printf("exec pid=%d", current->tid);
@@ -85,9 +70,13 @@ static int sys_fork (void *eipf){
   a = (struct aux_fork *)malloc(sizeof(struct aux_fork));
   a->f = (struct intr_frame *)malloc(sizeof(struct intr_frame));
   memcpy(a->f, (struct intr_frame *)eipf, sizeof(struct intr_frame));
-  if(strcmp(t->name, "forked"))
-    pid = fork_execute(a);
-  enum intr_level old_level;
+
+  a->t = t;
+
+  pid = fork_execute(a);
+  
+  sema_down(&(t->fork_sema));
+  
   return pid;
 }
 

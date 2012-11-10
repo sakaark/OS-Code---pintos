@@ -40,7 +40,6 @@ void *shared_memory_open_sys(int size){
   entry->stack_page = false;
   entry->shared_mem = true;
   
-
   list_push_back (&t->sup_list, &entry->elem);
   
   pagedir_set_page(t->pagedir, upage, shared_mem, true);

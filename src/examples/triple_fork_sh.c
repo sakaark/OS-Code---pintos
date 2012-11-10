@@ -17,12 +17,15 @@ main (int argc, char **argv)
     if (pid == 0)
       exec("compute_sh 11");
     else{
+      char *shm = shared_memory_open(32);
+      strlcpy(shm, "hi", 3);
+      printf("Put in shared memory = %s %p\n", shm, shm);
+
       pid = fork();
       if (pid == 0)
 	exec("compute_sh 12");
       else{
-	char *shm = shared_memory_open(32);
-	strlcpy(shm, "hi", 3);
+	strlcpy(shm, "new", 4);
 	printf("Put in shared memory = %s\n", shm);
 	shared_memory_close();
       }

@@ -69,8 +69,6 @@ static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
-int thread_fork();
-int thread_fork2();
 static tid_t allocate_tid (void);
 void print_ready_list(void);
 tid_t fork_create(const char *name, int priority, thread_func *function, void *aux);
@@ -207,12 +205,8 @@ fork_create(const char *name, int priority, thread_func *function,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-  struct aux_fork *param = (struct aux_fork *)aux;
-  param->file = palloc_get_page(PAL_ZERO);
-  strlcpy(((struct aux_fork *)aux)->file, current->name, strlen(current->name)+1);
+
   old_level = intr_disable ();
-  t->forks = current->forks;
-  t->forks_done = 0;
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -579,11 +573,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  t->forks = 0;
-  t->forks_done = 0;
 #ifdef USERPROG
   list_init (&(t->sup_list));
   t->shared_mem = false;
+  sema_init(&(t->fork_sema), 0);
 #endif
   list_push_back (&all_list, &t->allelem);
 }

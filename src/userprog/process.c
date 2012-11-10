@@ -23,7 +23,7 @@
 static thread_func start_process NO_RETURN;
 static thread_func fork_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-static void copy_to_swap();
+static void load_addr_space(struct thread *t);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -53,7 +53,7 @@ tid_t
 fork_execute (void *a) 
 {
   tid_t tid=0;
-  tid = fork_create (thread_current()->name, PRI_DEFAULT, fork_process, a);
+  tid = thread_create (thread_current()->name, PRI_DEFAULT, fork_process, a);
   return tid;
 }
 
@@ -153,21 +153,68 @@ exit:
   NOT_REACHED ();
 }
 
+static void load_addr_space(struct thread *t){
+  struct thread *current = thread_current();
+  current->pagedir = pagedir_create();
+  process_activate();
+  struct list_elem *e;
+
+  for (e = list_begin (&t->sup_list); e != list_end (&t->sup_list); e = list_next (e)){
+    struct sup_entry *f = list_entry (e, struct sup_entry, elem);
+    struct sup_entry *ent;
+    ent = malloc(sizeof(struct sup_entry));
+    ent->writable = true;
+    ent->stack_page = false;
+    ent->shared_mem = false;
+
+    if(f->stack_page == true){
+      uint8_t *kpage = palloc_get_page(PAL_USER);
+      if (kpage == NULL)
+	PANIC ("no pages left!\n");
+      memcpy(kpage, f->kpool_no, PGSIZE);
+
+      ent->page_no = f->page_no;
+      ent->kpool_no = kpage;
+      ent->stack_page = true;
+
+      pagedir_set_page (current->pagedir, ent->page_no, kpage, true);
+
+      list_push_back(&(current->sup_list), &(ent->elem));
+      continue;
+    }
+
+    if(f->shared_mem == true){
+      ent->page_no = f->page_no;
+      ent->kpool_no = f->kpool_no;
+      ent->shared_mem = true;
+
+      pagedir_set_page (current->pagedir, ent->page_no, f->kpool_no, true);
+
+      list_push_back(&(current->sup_list), &(ent->elem));
+
+      current->shared_mem = true;
+      continue;
+    }
+
+    uint8_t *kpool_pg = swap_get_page();
+    if (kpool_pg == NULL)
+      PANIC ("swap store is full!!\n");
+    memcpy(kpool_pg, f->kpool_no, PGSIZE);
+
+    ent->page_no = f->page_no;
+    ent->kpool_no = kpool_pg;
+
+    list_push_back (&(current->sup_list), &(ent->elem));
+  }
+}
+
+
 static void 
 fork_process (void *aux)
 {
-  char *file_name = ((struct aux_fork *)aux)->file;
   struct intr_frame if_;
   bool success;
-
-  /* My Implementation */
-  char *token, *save_ptr;
-  void *start;
-  int argc, i;
-  int *argv_off; /* Maximum of 2 arguments */
-  size_t file_name_len;
-  struct thread *t;
-  /* == My Implementation */
+  struct aux_fork *param = aux;
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -175,65 +222,6 @@ fork_process (void *aux)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   
-  /* My Implementation */
-  t = thread_current ();
-  argc = 0;
-  argv_off = malloc (32 * sizeof (int));
-  if (!argv_off)
-    goto exit;
-  file_name_len = strlen (file_name);
-  argv_off[0] = 0;
-  for (
-       token = strtok_r (file_name, " ", &save_ptr);
-       token != NULL;
-       token = strtok_r (NULL, " ", &save_ptr)
-       )
-        {
-          while (*(save_ptr) == ' ')
-            ++save_ptr;
-          argv_off[++argc] = save_ptr - file_name;
-        }
-  /* == My Implementation */
-  
-  success = load (file_name, &if_.eip, &if_.esp);
-
-  /* My Implementation */
-  /* Setting up stack */
-  if (success)
-    {
-      if_.esp -= file_name_len + 1;
-      start = if_.esp;
-      memcpy (if_.esp, file_name, file_name_len + 1);
-      if_.esp -= 4 - (file_name_len + 1) % 4; /* alignment */
-      if_.esp -= 4;
-      *(int *)(if_.esp) = 0; /* argv[argc] == 0 */
-      /* Now pushing argv[x], and this is where the fun begins */
-      for (i = argc - 1; i >= 0; --i)
-        {
-          if_.esp -= 4;
-          *(void **)(if_.esp) = start + argv_off[i]; /* argv[x] */
-        }
-
-      if_.esp -= 4;
-      *(char **)(if_.esp) = (if_.esp + 4); /* argv */
-      if_.esp -= 4;
-      *(int *)(if_.esp) = argc;
-      if_.esp -= 4;
-      *(int *)(if_.esp) = 0; /* Fake return address */
-    }
-  else
-    {
-      free (argv_off);
-exit:
-      thread_exit ();
-    }
-  
-  free (argv_off);
-  
-  /* If load failed, quit. */
-  //t->loadname = file_name;
-  palloc_free_page (file_name);
-
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -241,7 +229,11 @@ exit:
      we just point the stack pointer (%esp) to our stack frame
      and jump to it. */
   //copy_to_swap();
-  asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
+  load_addr_space(param->t);
+  sema_up (&(param->t->fork_sema));
+  param->f->eax = 0;
+
+  asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (param->f) : "memory");
   NOT_REACHED ();
 }
 
@@ -394,9 +386,6 @@ static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
-static bool load_segment2 (struct file *file, off_t ofs, uint8_t *upage,
-                          uint32_t read_bytes, uint32_t zero_bytes,
-                          bool writable);
 
 /* Loads an ELF executable from FILE_NAME into the current thread.
    Stores the executable's entry point into *EIP
@@ -488,7 +477,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-              if (!load_segment2 (file, file_page, (void *) mem_page,
+              if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
                 goto done;
             }
@@ -576,53 +565,9 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
 
    Return true if successful, false if a memory allocation error
    or disk read error occurs. */
+
 static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
-              uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
-{
-  ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
-  ASSERT (pg_ofs (upage) == 0);
-  ASSERT (ofs % PGSIZE == 0);
-
-  file_seek (file, ofs);
-  while (read_bytes > 0 || zero_bytes > 0) 
-    {
-      /* Calculate how to fill this page.
-         We will read PAGE_READ_BYTES bytes from FILE
-         and zero the final PAGE_ZERO_BYTES bytes. */
-      size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
-      size_t page_zero_bytes = PGSIZE - page_read_bytes;
-
-      /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
-      if (kpage == NULL)
-        return false;
-
-      /* Load this page. */
-      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
-      memset (kpage + page_read_bytes, 0, page_zero_bytes);
-
-      /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable)) 
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
-
-      /* Advance. */
-      read_bytes -= page_read_bytes;
-      zero_bytes -= page_zero_bytes;
-      upage += PGSIZE;
-    }
-  return true;
-}
-
-static bool
-load_segment2 (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
 {
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
@@ -728,34 +673,4 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
-}
-
-static void
-copy_to_swap()
-{
-  struct thread *t = thread_current();
-  uint8_t *upage = 0x00000000;
-  uint8_t *offset = 0x00001000;
-  int i = 0;
-  printf("entering\n");
-  while(is_user_vaddr(upage)){
-    uint8_t *vpoolpage = pagedir_get_page(t->pagedir, upage);
-
-    if (vpoolpage != NULL){
-      printf("haha\n");
-      struct sup_entry *entry;
-      entry = (struct sup_entry *)malloc(sizeof(struct sup_entry));
-
-      uint8_t *swappage = swap_get_page();
-      memcpy(swappage, vpoolpage, PGSIZE);
-
-      entry->page_no = upage;
-      entry->kpool_no = swappage;
-
-      list_push_back(&t->sup_list, &entry->elem);
-    }
-    upage = (uint8_t *)((uint32_t)upage + (uint32_t)offset);
-    i++;
-  }
-  printf("exited %d\n", i);
 }
