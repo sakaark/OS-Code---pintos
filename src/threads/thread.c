@@ -291,6 +291,10 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   #ifdef FILESYS
+  t->fd_table = (struct list *) malloc(sizeof(struct list));	
+  list_init(t->fd_table);
+  t->fd = 2;
+
   if(t != initial_thread && strcmp(name,"idle") != 0 && strcmp(name,"filesys_rah") != 0 ) {
     struct dir * parentpwd = thread_current()->pwd;
     t->pwd = dir_reopen(parentpwd);
@@ -715,6 +719,51 @@ thread_initpwd(void)
 }
 
 #endif
+
+#ifdef USERPROG
+
+//adds a file to the current threads fd table
+int add_file(struct file *file){
+  //allocate memory
+  struct filed * f = (struct filed *)malloc(sizeof(struct filed));
+  f->file = file;
+  f->fd = thread_current()->fd++;
+  f->vaddr=NULL;
+  list_push_back (thread_current()->fd_table, &f->filed);
+  return f->fd;
+}
+
+//adds a file to the current threads fd table
+int add_filemmap(struct file *file, void * mem){
+  //allocate memory
+  struct filed * f = (struct filed *)malloc(sizeof(struct filed));
+  f->file = file;
+  f->fd = thread_current()->fd++;
+  f->vaddr=mem;
+  list_push_back (thread_current()->fd_table, &f->filed);
+  return f->fd;
+}
+//find a file with a given fd
+struct filed * find_file(int fd){
+
+  if ( fd < 2) return NULL;
+
+  struct list_elem *e;
+  struct list * l = thread_current()->fd_table;
+  struct filed *f = NULL;
+  //find file
+  for (e = list_begin (l); e != list_end (l); e = list_next (e)) {
+    struct filed *t  = list_entry (e, struct filed, filed);
+    if (t->fd == fd) {
+      f = t;
+      break;
+    }
+  }
+  return f;
+}
+
+#endif
+
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */

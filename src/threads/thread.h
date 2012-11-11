@@ -97,6 +97,8 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    struct list * fd_table;		/* the FD table */
+    int fd;
     struct list sup_list;
     bool shared_mem;
     struct semaphore fork_sema;
@@ -105,6 +107,18 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+
+//element in the FD table 
+struct filed 
+{
+	struct file * file;
+	int fd;
+	struct list_elem filed;
+	void * vaddr; 
+};
+//functions to add something to the fd table or find an element in them
+int add_file(struct file *);
+int add_filemmap(struct file *, void * );
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

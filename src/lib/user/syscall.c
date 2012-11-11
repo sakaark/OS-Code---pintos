@@ -171,7 +171,7 @@ munmap (mapid_t mapid)
   syscall1 (SYS_MUNMAP, mapid);
 }
 
-bool
+int
 chdir (const char *dir)
 {
   return syscall1 (SYS_CHDIR, dir);

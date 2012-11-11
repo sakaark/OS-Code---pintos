@@ -3,9 +3,9 @@ SRCDIR = ..
 # Test programs to compile, and a list of sources for each.
 # To add a new test, put its name on the PROGS list
 # and then add a name_SRC line that lists its source files.
-PROGS = cat cmp cp echo halt hex-dump ls mcat mcp mkdir pwd rm shell \
+PROGS = cat cmp cp echo halt hex-dump ls mcat mcp mkdir chdir pwd rm shell \
 	bubsort insult lineup matmult recursor compute_f compute_sh \
-	calc_f triple_fork_sh
+	calc_f triple_fork_sh open
 
 # Should work from project 2 onward.
 cat_SRC = cat.c
@@ -28,6 +28,7 @@ mcp_SRC = mcp.c
 
 # Should work in project 4.
 mkdir_SRC = mkdir.c
+chdir_SRC = chdir.c
 pwd_SRC = pwd.c
 shell_SRC = shell.c
 
@@ -35,6 +36,7 @@ compute_f_SRC = compute_f.c
 compute_sh_SRC = compute_sh.c
 triple_fork_sh_SRC = triple_fork_sh.c
 calc_f_SRC = calc_f.c
+open_SRC = open.c
 
 include $(SRCDIR)/Make.config
 include $(SRCDIR)/Makefile.userprog

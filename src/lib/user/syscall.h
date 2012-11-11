@@ -43,7 +43,7 @@ mapid_t mmap (int fd, void *addr);
 void munmap (mapid_t);
 
 /* Project 4 only. */
-bool chdir (const char *dir);
+int chdir (const char *dir);
 int mkdir (const char *pathname);
 bool readdir (int fd, char name[READDIR_MAX_LEN + 1]);
 bool isdir (int fd);
