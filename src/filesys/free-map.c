@@ -22,8 +22,8 @@ free_map_init (void)
 /* Allocates CNT consecutive sectors from the free map and stores
    the first into *SECTORP.
    Returns true if successful, false if not enough consecutive
-   sectors were available or if the free_map file could not be
-   written. */
+   sectors were available or if the free_map file could not be
+   written. */
 bool
 free_map_allocate (size_t cnt, block_sector_t *sectorp)
 {
@@ -73,7 +73,7 @@ void
 free_map_create (void) 
 {
   /* Create inode. */
-  if (!inode_create (FREE_MAP_SECTOR, bitmap_file_size (free_map)))
+  if (!inode_create (FREE_MAP_SECTOR, bitmap_file_size (free_map),FILE_FILE))
     PANIC ("free map creation failed");
 
   /* Write bitmap to file. */

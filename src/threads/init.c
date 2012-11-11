@@ -128,6 +128,7 @@ main (void)
   ide_init ();
   locate_block_devices ();
   filesys_init (format_filesys);
+  thread_initpwd();
 #endif
 
   printf ("Boot complete.\n");

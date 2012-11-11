@@ -7,6 +7,7 @@
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "filesys/inode.h"
 #include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/vaddr.h"
@@ -66,10 +67,10 @@ fsutil_rm (char **argv)
     PANIC ("%s: delete failed\n", file_name);
 }
 
-/* Extracts a ustar-format tar archive from the scratch block
-   device into the Pintos file system. */
+/* Extracts a ustar-format tar archive from the scratch device
+   into the Pintos file system. */
 void
-fsutil_extract (char **argv UNUSED) 
+fsutil_extract (char **argv UNUSED)
 {
   static block_sector_t sector = 0;
 
@@ -82,13 +83,13 @@ fsutil_extract (char **argv UNUSED)
   if (header == NULL || data == NULL)
     PANIC ("couldn't allocate buffers");
 
-  /* Open source block device. */
+  /* Open source device. */
   src = block_get_role (BLOCK_SCRATCH);
   if (src == NULL)
     PANIC ("couldn't open scratch device");
 
-  printf ("Extracting ustar archive from scratch device "
-          "into file system...\n");
+  printf ("Extracting ustar archive from %s into file system...\n",
+          block_name (src));
 
   for (;;)
     {
@@ -101,7 +102,8 @@ fsutil_extract (char **argv UNUSED)
       block_read (src, sector++, header);
       error = ustar_parse_header (header, &file_name, &type, &size);
       if (error != NULL)
-        PANIC ("bad ustar header in sector %"PRDSNu" (%s)", sector - 1, error);
+        PANIC ("%s: bad ustar header in sector %"PRDSNu" (%s)",
+               block_name (src), sector - 1, error);
 
       if (type == USTAR_EOF)
         {
@@ -117,7 +119,7 @@ fsutil_extract (char **argv UNUSED)
           printf ("Putting '%s' into the file system...\n", file_name);
 
           /* Create destination file. */
-          if (!filesys_create (file_name, size))
+          if (!filesys_create (file_name, size, FILE_FILE))
             PANIC ("%s: create failed", file_name);
           dst = filesys_open (file_name);
           if (dst == NULL)
@@ -131,7 +133,7 @@ fsutil_extract (char **argv UNUSED)
                                 : size);
               block_read (src, sector++, data);
               if (file_write (dst, data, chunk_size) != chunk_size)
-                PANIC ("%s: write failed with %d bytes unwritten",
+                PANIC ("%s: write failed with %"PROTd" bytes unwritten",
                        file_name, size);
               size -= chunk_size;
             }
@@ -141,10 +143,10 @@ fsutil_extract (char **argv UNUSED)
         }
     }
 
-  /* Erase the ustar header from the start of the block device,
-     so that the extraction operation is idempotent.  We erase
-     two blocks because two blocks of zeros are the ustar
-     end-of-archive marker. */
+  /* Erase the ustar header from the start of the device, so that
+     the extraction operation is idempotent.  We erase two blocks
+     because two blocks of zeros are the ustar end-of-archive
+     marker. */
   printf ("Erasing ustar archive...\n");
   memset (header, 0, BLOCK_SECTOR_SIZE);
   block_write (src, 0, header);
@@ -154,14 +156,14 @@ fsutil_extract (char **argv UNUSED)
   free (header);
 }
 
-/* Copies file FILE_NAME from the file system to the scratch
-   device, in ustar format.
+/* Copies file FILE_NAME from the Pintos file system to a 
+   ustar-format tar archive maintained on the scratch device.
 
    The first call to this function will write starting at the
-   beginning of the scratch device.  Later calls advance across
-   the device.  This position is independent of that used for
-   fsutil_extract(), so `extract' should precede all
-   `append's. */
+   beginning of the scratch device, thus creating a new archive.  
+   Therefore, any `extract' calls must precede all `append's.
+   Later calls advance across the device, appending to the 
+   archive. */
 void
 fsutil_append (char **argv)
 {
@@ -173,7 +175,7 @@ fsutil_append (char **argv)
   struct block *dst;
   off_t size;
 
-  printf ("Appending '%s' to ustar archive on scratch device...\n", file_name);
+  printf ("Getting '%s' from the file system...\n", file_name);
 
   /* Allocate buffer. */
   buffer = malloc (BLOCK_SECTOR_SIZE);
@@ -186,16 +188,16 @@ fsutil_append (char **argv)
     PANIC ("%s: open failed", file_name);
   size = file_length (src);
 
-  /* Open target block device. */
+  /* Open target device. */
   dst = block_get_role (BLOCK_SCRATCH);
   if (dst == NULL)
     PANIC ("couldn't open scratch device");
   
   /* Write ustar header to first sector. */
   if (!ustar_make_header (file_name, USTAR_REGULAR, size, buffer))
-    PANIC ("%s: name too long for ustar format", file_name);
+    PANIC ("%s: can't get from file system (name too long)", file_name);
   block_write (dst, sector++, buffer);
-
+  
   /* Do copy. */
   while (size > 0) 
     {
@@ -211,7 +213,7 @@ fsutil_append (char **argv)
 
   /* Write ustar end-of-archive marker, which is two consecutive
      sectors full of zeros.  Don't advance our position past
-     them, though, in case we have more files to append. */
+     them, though, in case we have more files to get. */
   memset (buffer, 0, BLOCK_SECTOR_SIZE);
   block_write (dst, sector, buffer);
   block_write (dst, sector, buffer + 1);

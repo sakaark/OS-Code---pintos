@@ -101,6 +101,7 @@ struct thread
     bool shared_mem;
     struct semaphore fork_sema;
 #endif
+    struct dir * pwd;                         /* working directory */
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
@@ -142,4 +143,5 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+void thread_initpwd (void);
 #endif /* threads/thread.h */

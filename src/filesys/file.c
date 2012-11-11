@@ -3,13 +3,15 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 
+#include "filesys/cache.h"
+
 /* An open file. */
 struct file 
-  {
-    struct inode *inode;        /* File's inode. */
-    off_t pos;                  /* Current position. */
-    bool deny_write;            /* Has file_deny_write() been called? */
-  };
+{
+  struct inode *inode;        /* File's inode. */
+  off_t pos;                  /* Current position. */
+  bool deny_write;            /* Has file_deny_write() been called? */
+};
 
 /* Opens a file for the given INODE, of which it takes ownership,
    and returns the new file.  Returns a null pointer if an
@@ -27,6 +29,9 @@ file_open (struct inode *inode)
     }
   else
     {
+
+      //printf("DEBUG: open file something is wrong, inode pos %p\n",inode);
+
       inode_close (inode);
       free (file);
       return NULL; 
@@ -165,4 +170,16 @@ file_tell (struct file *file)
 {
   ASSERT (file != NULL);
   return file->pos;
+}
+
+bool
+file_direct (struct file * file)
+{
+  struct inode * myinode = file_get_inode (file);
+
+  enum file_type type =  inode_type (myinode);
+
+  if(type == FILE_DIR) return true;
+  else return false;
+
 }
