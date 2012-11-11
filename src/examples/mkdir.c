@@ -14,11 +14,13 @@ main (int argc, char *argv[])
       return EXIT_FAILURE;
     }
 
-  if (!mkdir (argv[1])) 
+  if (mkdir (argv[1]) == -1) 
     {
       printf ("%s: mkdir failed\n", argv[1]);
       return EXIT_FAILURE;
     }
+  else
+    printf("directory made\n");
   
   return EXIT_SUCCESS;
 }

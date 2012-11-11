@@ -6,11 +6,15 @@
 #include "threads/synch.h"
 #include "userprog/process.h"
 #include "vm/shared_memory.h"
+#ifdef FILESYS
+#include "filesys/inode.h"
+#endif
 
 static void syscall_handler (struct intr_frame *);
 static int sys_write (int fd, const void *buffer, unsigned size);
 static int sys_fork (void *eipf);
 static void sys_exec (char *file);
+int sys_mkdir (char *dirname);
 
 void
 syscall_init (void) 
@@ -39,7 +43,6 @@ syscall_handler (struct intr_frame *f)
     f->eax = sys_fork(f);
     break;
   case SYS_EXEC:
-    //printf("exec pid=%d", current->tid);
     sys_exec((char *)arguments[0]);
     break;
   case SYS_SHM_OPEN:
@@ -48,6 +51,8 @@ syscall_handler (struct intr_frame *f)
   case SYS_SHM_CLOSE:
     shared_memory_close_sys();
     break;
+  case SYS_MKDIR:
+    f->eax = sys_mkdir((char *)arguments[0]);
   default:
     break;
   }
@@ -84,3 +89,15 @@ static void sys_exec (char *file){
   process_execute(file);
   thread_exit();
 }
+
+int sys_mkdir (char *dirname) {
+  //if empty or root return
+  if(strlen(dirname) ==  0 || strcmp( dirname, "/") == 0) { 
+    return -1;
+  }
+  
+  bool success = filesys_create(dirname, 0,FILE_DIR);
+  
+  if ( success ) return 0;
+  else return -1;
+} 

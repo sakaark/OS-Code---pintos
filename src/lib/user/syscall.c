@@ -177,10 +177,10 @@ chdir (const char *dir)
   return syscall1 (SYS_CHDIR, dir);
 }
 
-bool
-mkdir (const char *dir)
+int 
+mkdir(const char *pathname)
 {
-  return syscall1 (SYS_MKDIR, dir);
+  return (int) syscall1 (SYS_MKDIR, pathname);
 }
 
 bool

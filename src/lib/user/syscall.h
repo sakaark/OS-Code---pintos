@@ -44,7 +44,7 @@ void munmap (mapid_t);
 
 /* Project 4 only. */
 bool chdir (const char *dir);
-bool mkdir (const char *dir);
+int mkdir (const char *pathname);
 bool readdir (int fd, char name[READDIR_MAX_LEN + 1]);
 bool isdir (int fd);
 int inumber (int fd);

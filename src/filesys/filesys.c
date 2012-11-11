@@ -8,7 +8,7 @@
 #include "filesys/directory.h"
 #include "filesys/cache.h"
 #include "threads/malloc.h"
-
+#include <debug.h>
 
 /* Partition that contains the file system. */
 struct block *fs_device;
@@ -64,7 +64,6 @@ filesys_create (const char *name, off_t initial_size, enum file_type type)
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size, type)
                   && dir_add (dir, parse, inode_sector));
-
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   if( success == true && type == FILE_DIR ) {

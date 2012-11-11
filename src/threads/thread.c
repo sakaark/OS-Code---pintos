@@ -75,7 +75,6 @@ void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 void print_ready_list(void);
 tid_t fork_create(const char *name, int priority, thread_func *function, void *aux);
-void filesys_readahead_thread (void * dummy UNUSED);
 
 void
 print_all_list()
@@ -153,10 +152,6 @@ thread_start (void)
 
   /* Wait for the idle thread to initialize idle_thread. */
   sema_down (&idle_started);
-#ifdef FILESYS
-  thread_create ("filesys_rah", PRI_DEFAULT, filesys_readahead_thread, (void *)NULL);
-#endif
-
 }
 
 /* Called by the timer interrupt handler at each timer tick.
@@ -719,28 +714,6 @@ thread_initpwd(void)
   initial_thread->pwd = dir_open_root();
 }
 
-void filesys_readahead_thread (void * dummy UNUSED) {
-  //init all necessary variables
-  lock_init(&lock_readahead);
-  list_init(&list_readahead);
-  cond_init(&cond_readahead);
-  
-  while(true) {
-    lock_acquire(&lock_readahead);
-    //wait until someone puts something on the list
-    while(list_empty(&list_readahead))
-      cond_wait(&cond_readahead,&lock_readahead);
-    
-    //read in the information and read block to cache
-    struct readahead * r = list_entry (list_pop_front (&list_readahead), struct readahead, elem);
-    //add it to cache		
-    do_readahead (r->bid);
-    lock_release(&lock_readahead);
-    
-    free(r);
-    //if (debug) printf("filesys read ahead\n");
-  }
-}
 #endif
 
 /* Offset of `stack' member within `struct thread'.
