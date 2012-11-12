@@ -1,3 +1,4 @@
+
 //#include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
@@ -76,20 +77,34 @@ syscall_handler (struct intr_frame *f UNUSED)
   switch (sys_call){
     /*********** For Pthreads ******************/
   case SYS_HALT:            shutdown_power_off();
-  case SYS_PTHREADS_CREATE: return sys_pthread_create(*(pthread_t **)(sp + 1), *(pthread_attr_t **)(sp + 2),
-						      *(thread_func **)(sp + 3), *(void **)(sp + 4));
-  case SYS_PTHREADS_EXIT:   sys_pthread_exit(*(void **)(sp + 1));
-  case SYS_PTHREADS_JOIN:   return sys_pthread_join(*(pthread_t *)(sp + 1), *(void ***)(sp + 2));
-
-
+  case SYS_PTHREADS_CREATE: 
+    f->eax =  sys_pthread_create(*(pthread_t **)(sp + 1), *(pthread_attr_t **)(sp + 2), *(thread_func **)(sp + 3), *(void **)(sp + 4)); 
+    break;
+  case SYS_PTHREADS_EXIT:   
+    sys_pthread_exit(*(void **)(sp + 1)); 
+    break;
+  case SYS_PTHREADS_JOIN:   
+    f->eax = sys_pthread_join(*(pthread_t *)(sp + 1), *(void ***)(sp + 2));
+    break;
     /************ For message queues ***********/
-  case SYS_MQ_OPEN:         return sys_mq_open(*(char **)(sp + 1), *(int *)(sp + 2));
-  case SYS_MQ_SEND:         return sys_mq_send(*(mqd_t *)(sp + 1), *(char **)(sp + 2), *(size_t *)(sp + 3), *(unsigned *)(sp + 4));
-  case SYS_MQ_RECEIVE:      return sys_mq_receive(*(mqd_t *)(sp + 1), *(char **)(sp + 2), *(size_t *)(sp + 3), *(unsigned **)(sp + 4));
-  case SYS_MQ_CLOSE:        return sys_mq_close(*(mqd_t *)(sp + 1));
-  case SYS_MQ_UNLINK:       return sys_mq_unlink(*(char **)(sp + 1));
+  case SYS_MQ_OPEN:         
+    f->eax = sys_mq_open(*(char **)(sp + 1), *(int *)(sp + 2));
+    break;
+  case SYS_MQ_SEND:         
+    f->eax = sys_mq_send(*(mqd_t *)(sp + 1), *(char **)(sp + 2), *(size_t *)(sp + 3), *(unsigned *)(sp + 4));
+    break;
+  case SYS_MQ_RECEIVE:      
+    f->eax = sys_mq_receive(*(mqd_t *)(sp + 1), *(char **)(sp + 2), *(size_t *)(sp + 3), *(unsigned **)(sp + 4));
+    break;
+  case SYS_MQ_CLOSE:        
+    f->eax = sys_mq_close(*(mqd_t *)(sp + 1));
+    break;
+  case SYS_MQ_UNLINK:       
+    f->eax = sys_mq_unlink(*(char **)(sp + 1));
+    break;
 
-  default:                  printf ("system call!\n"); thread_exit();
+  default:
+    break;
   }
   return;
 }
